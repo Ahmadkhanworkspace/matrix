@@ -1,0 +1,402 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model
+model User {
+  id              String   @id @default(cuid())
+  username        String   @unique
+  email           String   @unique
+  firstName       String
+  lastName        String
+  password        String
+  status          UserStatus @default(PENDING)
+  memberType      MemberType @default(FREE)
+  
+  // Referral relationship
+  sponsorId       String?
+  sponsor         User?    @relation("UserReferrals", fields: [sponsorId], references: [id])
+  downlines       User[]   @relation("UserReferrals")
+  
+  // Financial fields
+  totalEarnings   Float    @default(0)
+  paidEarnings    Float    @default(0)
+  unpaidEarnings  Float    @default(0)
+  
+  // Timestamps
+  joinDate        DateTime @default(now())
+  lastLogin       DateTime?
+  isActive        Boolean  @default(true)
+  emailVerified   Boolean  @default(false)
+  twoFactorEnabled Boolean @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  matrixPositions MatrixPosition[] @relation("UserMatrixPositions")
+  sponsoredPositions MatrixPosition[] @relation("SponsoredMatrixPositions")
+  matrixLevels    MatrixLevel[]
+  payments        Payment[]
+  withdrawals     Withdrawal[]
+  transactions    Transaction[]
+  bonuses         Bonus[]
+  sessions        Session[]
+  
+  @@map("users")
+}
+
+// Matrix Position model
+model MatrixPosition {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation("UserMatrixPositions", fields: [userId], references: [id], onDelete: Cascade)
+  matrixLevel Int
+  positionPath String  // LTREE for hierarchical queries
+  sponsorId   String?
+  sponsor     User?    @relation("SponsoredMatrixPositions", fields: [sponsorId], references: [id])
+  status      MatrixPositionStatus @default(ACTIVE)
+  cycleCount  Int      @default(0)
+  totalEarned Float    @default(0)
+  createdAt   DateTime @default(now())
+  cycledAt    DateTime?
+  
+  // Relations
+  bonuses     Bonus[]
+  
+  @@unique([userId, matrixLevel])
+  @@index([positionPath])
+  @@index([matrixLevel])
+  @@index([sponsorId])
+  @@map("matrix_positions")
+}
+
+// Matrix Level model
+model MatrixLevel {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  matrixLevel     Int
+  positionsFilled Int      @default(0)
+  totalPositions  Int      @default(2)
+  status          MatrixLevelStatus @default(IN_PROGRESS)
+  startDate       DateTime @default(now())
+  completionDate  DateTime?
+  
+  @@unique([userId, matrixLevel])
+  @@index([matrixLevel])
+  @@map("matrix_levels")
+}
+
+// Payment Gateway Configuration model
+model PaymentGatewayConfig {
+  id                  String   @id @default(cuid())
+  name                String
+  gateway             PaymentGateway
+  isActive            Boolean  @default(false)
+  isTestMode          Boolean  @default(true)
+  supportedCurrencies String[] // Array of currency codes
+  minAmount           Float    @default(0)
+  maxAmount           Float    @default(10000)
+  feePercentage       Float    @default(0)
+  fixedFee            Float    @default(0)
+  config              Json     // Gateway-specific configuration
+  webhookUrl          String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  // Relations
+  payments            Payment[]
+  
+  @@unique([gateway])
+  @@index([isActive])
+  @@map("payment_gateway_configs")
+}
+
+// Currency model
+model Currency {
+  id                String   @id @default(cuid())
+  code              String   @unique // USD, EUR, BTC, ETH, etc.
+  name              String
+  symbol            String
+  isActive          Boolean  @default(false)
+  isDefault         Boolean  @default(false)
+  exchangeRate      Float    @default(1.0) // Rate relative to base currency
+  decimalPlaces     Int      @default(2)
+  minWithdrawal     Float    @default(0)
+  maxWithdrawal     Float    @default(10000)
+  withdrawalFee     Float    @default(0)
+  withdrawalFeeType WithdrawalFeeType @default(PERCENTAGE)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([isActive])
+  @@index([isDefault])
+  @@map("currencies")
+}
+
+// Enhanced Payment model
+model Payment {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount          Float
+  currency        String   @default("USD")
+  paymentMethod   PaymentMethod
+  paymentGateway  PaymentGateway
+  gatewayId       String
+  gatewayConfig   PaymentGatewayConfig @relation(fields: [gatewayId], references: [id])
+  status          PaymentStatus @default(PENDING)
+  transactionId   String?  @unique
+  gatewayResponse Json?
+  description     String
+  createdAt       DateTime @default(now())
+  processedAt     DateTime?
+  
+  // Relations
+  transactions    Transaction[] // Added relation
+  
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([gatewayId])
+  @@map("payments")
+}
+
+// Withdrawal model
+model Withdrawal {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount          Float
+  currency        String   @default("USD")
+  walletAddress   String
+  withdrawalMethod String? // Added missing field
+  status          WithdrawalStatus @default(PENDING)
+  transactionId   String?  @unique
+  gatewayResponse Json?
+  fee             Float    @default(0)
+  netAmount       Float
+  metadata        Json?    // Added missing field
+  createdAt       DateTime @default(now())
+  processedAt     DateTime?
+  
+  // Relations
+  transactions    Transaction[] // Added relation
+  
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("withdrawals")
+}
+
+// Transaction model
+model Transaction {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type          TransactionType
+  amount        Float
+  currency      String   @default("USD")
+  description   String
+  referenceId   String?
+  referenceType String?
+  status        TransactionStatus @default(PENDING) // Added missing field
+  balance       Float
+  withdrawalId  String?  // Added missing field
+  withdrawal    Withdrawal? @relation(fields: [withdrawalId], references: [id]) // Added relation
+  paymentId     String?  // Added missing field
+  payment       Payment? @relation(fields: [paymentId], references: [id]) // Added relation
+  metadata      Json?    // Added missing field
+  createdAt     DateTime @default(now())
+  
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("transactions")
+}
+
+// Bonus model
+model Bonus {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        BonusType
+  amount      Float
+  currency    String   @default("USD")
+  matrixLevel Int?
+  positionId  String?
+  position    MatrixPosition? @relation(fields: [positionId], references: [id])
+  sponsorId   String?
+  description String
+  status      BonusStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+  paidAt      DateTime?
+  
+  @@index([userId])
+  @@index([type])
+  @@index([status])
+  @@map("bonuses")
+}
+
+// Session model
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// System Configuration model
+model SystemConfig {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("system_configs")
+}
+
+// Matrix Configuration model
+model MatrixConfig {
+  id            String   @id @default(cuid())
+  level         Int      @unique
+  name          String
+  price         Float
+  currency      String   @default("USD")
+  matrixWidth   Int      @default(2)
+  matrixDepth   Int      @default(8)
+  referralBonus Float    @default(0)
+  matrixBonus   Float    @default(0)
+  matchingBonus Float    @default(0)
+  cycleBonus    Float    @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@map("matrix_configs")
+}
+
+// Enums
+enum UserStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  BANNED
+}
+
+enum MemberType {
+  FREE
+  PRO
+}
+
+enum MatrixPositionStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum MatrixLevelStatus {
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  COINPAYMENTS
+  NOWPAYMENTS
+  STRIPE
+  PAYPAL
+  BINANCE
+  RAZORPAY
+  MERCADOPAGO
+  FLUTTERWAVE
+  PAYSTACK
+  CRYPTO
+  BANK_TRANSFER
+  MANUAL
+}
+
+enum PaymentGateway {
+  COINPAYMENTS
+  NOWPAYMENTS
+  STRIPE
+  PAYPAL
+  BINANCE
+  RAZORPAY
+  MERCADOPAGO
+  FLUTTERWAVE
+  PAYSTACK
+  CRYPTO
+  BANK_TRANSFER
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  REFERRAL_BONUS
+  MATRIX_BONUS
+  MATCHING_BONUS
+  CYCLE_BONUS
+  ADMIN_ADJUSTMENT
+  CURRENCY_CONVERSION
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum BonusType {
+  REFERRAL
+  MATRIX
+  MATCHING
+  CYCLE
+  LEVEL
+}
+
+enum BonusStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+enum WithdrawalFeeType {
+  PERCENTAGE
+  FIXED
+} 

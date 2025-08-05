@@ -1,0 +1,201 @@
+name: Matrix MLM CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # Test Backend
+  test-backend:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: matrix_mlm_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run tests
+      run: npm test
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/matrix_mlm_test
+        JWT_SECRET: test_secret
+        NODE_ENV: test
+    
+    - name: Run linting
+      run: npm run lint
+
+  # Test Admin Panel
+  test-admin:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: admin-panel/package-lock.json
+    
+    - name: Install dependencies
+      run: |
+        cd admin-panel
+        npm ci
+    
+    - name: Run tests
+      run: |
+        cd admin-panel
+        npm test -- --watchAll=false
+    
+    - name: Build application
+      run: |
+        cd admin-panel
+        npm run build
+
+  # Test User Panel
+  test-user:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: user-panel/package-lock.json
+    
+    - name: Install dependencies
+      run: |
+        cd user-panel
+        npm ci
+    
+    - name: Run tests
+      run: |
+        cd user-panel
+        npm test -- --watchAll=false
+    
+    - name: Build application
+      run: |
+        cd user-panel
+        npm run build
+
+  # Security Scan
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-admin, test-user]
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Run security audit
+      run: |
+        npm audit --audit-level moderate
+        cd admin-panel && npm audit --audit-level moderate
+        cd ../user-panel && npm audit --audit-level moderate
+
+  # Build Docker Images
+  build-images:
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-admin, test-user, security-scan]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Login to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+    
+    - name: Build and push backend
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        file: ./Dockerfile.backend
+        push: true
+        tags: ${{ secrets.DOCKER_USERNAME }}/matrix-mlm-backend:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Build and push admin panel
+      uses: docker/build-push-action@v4
+      with:
+        context: ./admin-panel
+        file: ../Dockerfile.admin
+        push: true
+        tags: ${{ secrets.DOCKER_USERNAME }}/matrix-mlm-admin:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Build and push user panel
+      uses: docker/build-push-action@v4
+      with:
+        context: ./user-panel
+        file: ../Dockerfile.user
+        push: true
+        tags: ${{ secrets.DOCKER_USERNAME }}/matrix-mlm-user:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  # Deploy to Production
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-images
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Deploy to server
+      uses: appleboy/ssh-action@v0.1.5
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        script: |
+          cd /opt/matrix-mlm
+          docker-compose pull
+          docker-compose down
+          docker-compose up -d
+          docker system prune -f
+    
+    - name: Health check
+      run: |
+        sleep 30
+        curl -f https://${{ secrets.DOMAIN }}/health || exit 1
+    
+    - name: Notify deployment
+      run: |
+        echo "Deployment completed successfully!"
+        echo "Application is now live at https://${{ secrets.DOMAIN }}" 
