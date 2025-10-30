@@ -1,9 +1,12 @@
 import { Request, Response } from 'express';
 import { prisma } from '@/config/database';
 import { logger } from '@/utils/logger';
-import { ApiResponse, Payment, Withdrawal, Transaction, Currency, PaymentGatewayConfig, PaymentMethod, PaymentGateway } from '@/types';
+import { ApiResponse, PaymentMethod, PaymentGateway } from '@/types';
 import { PaymentGatewayService } from '@/services/PaymentGatewayService';
 import { EmailService } from '@/services/EmailService';
+import { StripeGateway } from '@/services/gateways/StripeGateway';
+import { CoinPaymentsGateway } from '@/services/gateways/CoinPaymentsGateway';
+import { NOWPaymentsGateway } from '@/services/gateways/NOWPaymentsGateway';
 
 export class PaymentController {
   private paymentGatewayService: PaymentGatewayService;
@@ -65,6 +68,22 @@ export class PaymentController {
         return;
       }
 
+      // Ensure currency and amount are supported by gateway
+      if (!gateway.supportedCurrencies.includes(currency)) {
+        res.status(400).json({
+          success: false,
+          message: `Selected gateway does not support currency ${currency}`
+        } as ApiResponse);
+        return;
+      }
+      if (amount < gateway.minAmount || amount > gateway.maxAmount) {
+        res.status(400).json({
+          success: false,
+          message: `Amount must be between ${gateway.minAmount} and ${gateway.maxAmount} for this gateway`
+        } as ApiResponse);
+        return;
+      }
+
       // Get user
       const user = await prisma.user.findUnique({
         where: { id: userId }
@@ -119,7 +138,7 @@ export class PaymentController {
           }
         });
 
-        // Create transaction record
+        // Create transaction record (link to payment and mark completed)
         const transaction = await prisma.transaction.create({
           data: {
             userId: userId as string,
@@ -129,8 +148,13 @@ export class PaymentController {
             description: `Payment: ${description}`,
             referenceId: payment.id,
             referenceType: 'PAYMENT',
+            paymentId: payment.id,
             balance: user.totalEarnings + amount, // Calculate new balance
-            status: 'COMPLETED'
+            status: 'COMPLETED',
+            metadata: {
+              gateway: gateway.gateway,
+              transactionId: paymentResult.transactionId
+            }
           }
         });
 
@@ -296,7 +320,7 @@ export class PaymentController {
         }
       });
 
-      // Create transaction record
+      // Create transaction record (link to withdrawal)
       await prisma.transaction.create({
         data: {
           userId,
@@ -304,8 +328,8 @@ export class PaymentController {
           amount: -amount,
           currency,
           description: `Withdrawal request: ${withdrawalMethod || 'CRYPTO'}`,
-          status: 'PENDING', // Now using the correct field
-          withdrawalId: withdrawal.id, // Now using the correct field
+          status: 'PENDING',
+          withdrawalId: withdrawal.id,
           balance: user.totalEarnings - amount, // Calculate new balance after withdrawal
           metadata: {
             withdrawalId: withdrawal.id,
@@ -671,5 +695,150 @@ export class PaymentController {
         message: 'Internal server error'
       } as ApiResponse);
     }
+  }
+
+  /**
+   * Webhook: Stripe
+   */
+  async webhookStripe(req: Request, res: Response): Promise<void> {
+    try {
+      const config = await prisma.paymentGatewayConfig.findFirst({
+        where: { gateway: 'STRIPE', isActive: true }
+      });
+      if (!config) {
+        res.status(400).json({ success: false, message: 'Stripe gateway not configured' } as ApiResponse);
+        return;
+      }
+
+      const gateway = new StripeGateway();
+      const result = await gateway.processWebhook(req.body, config.config as any);
+      if (!result) {
+        res.status(400).json({ success: false, message: 'Invalid Stripe webhook payload' } as ApiResponse);
+        return;
+      }
+
+      await this.applyWebhookUpdate(result.paymentId, result.status, result.transactionId, result.gatewayResponse);
+      res.status(200).send('OK');
+    } catch (error) {
+      logger.error('Stripe webhook error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' } as ApiResponse);
+    }
+  }
+
+  /**
+   * Webhook: CoinPayments
+   */
+  async webhookCoinPayments(req: Request, res: Response): Promise<void> {
+    try {
+      const config = await prisma.paymentGatewayConfig.findFirst({
+        where: { gateway: 'COINPAYMENTS', isActive: true }
+      });
+      if (!config) {
+        res.status(400).json({ success: false, message: 'CoinPayments gateway not configured' } as ApiResponse);
+        return;
+      }
+
+      const gateway = new CoinPaymentsGateway();
+      const result = await gateway.processWebhook(req.body, config.config as any);
+      if (!result) {
+        res.status(400).json({ success: false, message: 'Invalid CoinPayments webhook payload' } as ApiResponse);
+        return;
+      }
+
+      await this.applyWebhookUpdate(result.paymentId, result.status, result.transactionId, result.gatewayResponse);
+      res.status(200).send('OK');
+    } catch (error) {
+      logger.error('CoinPayments webhook error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' } as ApiResponse);
+    }
+  }
+
+  /**
+   * Webhook: NOWPayments
+   */
+  async webhookNOWPayments(req: Request, res: Response): Promise<void> {
+    try {
+      const config = await prisma.paymentGatewayConfig.findFirst({
+        where: { gateway: 'NOWPAYMENTS', isActive: true }
+      });
+      if (!config) {
+        res.status(400).json({ success: false, message: 'NOWPayments gateway not configured' } as ApiResponse);
+        return;
+      }
+
+      const gateway = new NOWPaymentsGateway();
+      const result = await gateway.processWebhook(req.body, config.config as any);
+      if (!result) {
+        res.status(400).json({ success: false, message: 'Invalid NOWPayments webhook payload' } as ApiResponse);
+        return;
+      }
+
+      await this.applyWebhookUpdate(result.paymentId, result.status, result.transactionId, result.gatewayResponse);
+      res.status(200).send('OK');
+    } catch (error) {
+      logger.error('NOWPayments webhook error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' } as ApiResponse);
+    }
+  }
+
+  /**
+   * Normalize and apply webhook update to payment and user balance
+   */
+  private async applyWebhookUpdate(paymentId: string, rawStatus: string, transactionId: string, gatewayResponse: any): Promise<void> {
+    const toStatus = (status: string) => {
+      const s = (status || '').toUpperCase();
+      if (['COMPLETED', 'SUCCESS', 'SUCCEEDED', 'CONFIRMED'].includes(s)) return 'COMPLETED';
+      if (['PENDING', 'PROCESSING', 'REQUIRES_PAYMENT_METHOD'].includes(s)) return 'PENDING';
+      return 'FAILED';
+    };
+
+    await prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.findUnique({ where: { id: paymentId } });
+      if (!payment) {
+        throw new Error(`Payment not found: ${paymentId}`);
+      }
+
+      const newStatus = toStatus(rawStatus) as any;
+      // Update payment
+      await tx.payment.update({
+        where: { id: paymentId },
+        data: {
+          status: newStatus,
+          transactionId,
+          processedAt: new Date(),
+          gatewayResponse
+        }
+      });
+
+      if (newStatus === 'COMPLETED') {
+        const user = await tx.user.findUnique({ where: { id: payment.userId } });
+        if (!user) return;
+
+        // Prevent duplicate crediting: check existing transaction linked to payment
+        const existing = await tx.transaction.findFirst({ where: { paymentId: payment.id, type: 'DEPOSIT', status: 'COMPLETED' } });
+        if (existing) return;
+
+        await tx.transaction.create({
+          data: {
+            userId: payment.userId,
+            type: 'DEPOSIT',
+            amount: payment.amount,
+            currency: payment.currency,
+            description: `Payment: ${payment.description}`,
+            referenceId: payment.id,
+            referenceType: 'PAYMENT',
+            paymentId: payment.id,
+            balance: user.totalEarnings + payment.amount,
+            status: 'COMPLETED',
+            metadata: { webhook: true, transactionId }
+          }
+        });
+
+        await tx.user.update({
+          where: { id: payment.userId },
+          data: { totalEarnings: { increment: payment.amount } }
+        });
+      }
+    });
   }
 } 

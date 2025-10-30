@@ -179,6 +179,13 @@ export const paymentSchema = Joi.object({
       'any.only': 'Payment method must be COINPAYMENTS, NOWPAYMENTS, STRIPE, PAYPAL, or CRYPTO',
       'any.required': 'Payment method is required'
     }),
+  gatewayId: Joi.string()
+    .trim()
+    .required()
+    .messages({
+      'string.base': 'Gateway ID must be a string',
+      'any.required': 'Gateway ID is required'
+    }),
   description: Joi.string()
     .max(200)
     .optional()

@@ -22,6 +22,11 @@ import userRoutes from './routes/user';
 import matrixRoutes from './routes/matrix';
 import paymentRoutes from './routes/payment';
 import adminRoutes from './routes/admin';
+import transactionRoutes from './routes/transaction';
+import contentRoutes from './routes/content';
+import notificationRoutes from './routes/notification';
+import analyticsRoutes from './routes/analytics';
+import systemRoutes from './routes/system';
 
 // Import services
 import { CronService } from './services/CronService';
@@ -36,10 +41,12 @@ class MatrixServer {
     this.port = parseInt(process.env.PORT || '3000', 10);
     this.app = express();
     this.server = createServer(this.app);
+    const allowedOrigins = this.getAllowedOrigins();
     this.io = new Server(this.server, {
       cors: {
-        origin: process.env.FRONTEND_URL || "http://localhost:3001",
-        methods: ["GET", "POST"]
+        origin: allowedOrigins,
+        methods: ["GET", "POST"],
+        credentials: true
       }
     });
 
@@ -53,7 +60,7 @@ class MatrixServer {
     // Security middleware
     this.app.use(helmet());
     this.app.use(cors({
-      origin: process.env.FRONTEND_URL || "http://localhost:3001",
+      origin: this.getAllowedOrigins(),
       credentials: true
     }));
 
@@ -78,6 +85,28 @@ class MatrixServer {
     this.app.use('/uploads', express.static('uploads'));
   }
 
+  private getAllowedOrigins(): (string | RegExp)[] {
+    const defaults = [
+      "http://localhost:3000",
+      "http://localhost:3002",
+      "http://localhost:3003",
+    ];
+    const fromEnv = [
+      process.env.FRONTEND_URL,
+      process.env.ADMIN_URL,
+    ].filter(Boolean) as string[];
+
+    const extra = (process.env.CORS_ORIGINS || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    // Allow any *.vercel.app by default if desired
+    const vercelWildcard = /https?:\/\/([a-z0-9-]+)\.vercel\.app$/i;
+
+    return [...defaults, ...fromEnv, ...extra, vercelWildcard];
+  }
+
   private initializeRoutes(): void {
     // Health check route
     this.app.get('/health', (req, res) => {
@@ -89,12 +118,17 @@ class MatrixServer {
       });
     });
 
-    // API routes
-    this.app.use('/api/auth', authRoutes);
-    this.app.use('/api/user', userRoutes);
-    this.app.use('/api/matrix', matrixRoutes);
-    this.app.use('/api/payment', paymentRoutes);
-    this.app.use('/api/admin', adminRoutes);
+          // API routes
+          this.app.use('/api/auth', authRoutes);
+          this.app.use('/api/user', userRoutes);
+          this.app.use('/api/matrix', matrixRoutes);
+          this.app.use('/api/payment', paymentRoutes);
+          this.app.use('/api/admin', adminRoutes);
+    this.app.use('/api/admin/transactions', transactionRoutes);
+    this.app.use('/api/admin/content', contentRoutes);
+    this.app.use('/api/admin/notifications', notificationRoutes);
+    this.app.use('/api/admin/analytics', analyticsRoutes);
+    this.app.use('/api/admin/system', systemRoutes);
 
     // 404 handler
     this.app.use('*', ErrorHandler.handleNotFound);
@@ -143,8 +177,16 @@ class MatrixServer {
       // Initialize error handlers
       ErrorHandler.initialize();
 
-      // Connect to database
-      await database.connect();
+      // Connect to database (will not crash in development if DB is not available)
+      try {
+        await database.connect();
+      } catch (error) {
+        if (process.env.NODE_ENV === 'development') {
+          logger.warn('⚠️ Starting server without database connection (development mode)');
+        } else {
+          throw error;
+        }
+      }
 
       // Start server
       this.server.listen(this.port, () => {
@@ -171,8 +213,12 @@ class MatrixServer {
       logger.info('HTTP server closed');
     });
 
-    // Close database connection
-    await database.disconnect();
+    // Close database connection (if connected)
+    try {
+      await database.disconnect();
+    } catch (error) {
+      logger.warn('Database was not connected during shutdown');
+    }
 
     // Close Socket.IO
     this.io.close(() => {

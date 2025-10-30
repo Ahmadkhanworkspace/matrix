@@ -115,9 +115,12 @@ const Login: React.FC = () => {
                   Remember me
                 </label>
               </div>
-              <a href="#" className="text-sm text-yellow-400 hover:text-yellow-300">
+              <button 
+                type="button" 
+                className="text-sm text-yellow-400 hover:text-yellow-300 bg-transparent border-none cursor-pointer"
+              >
                 Forgot password?
-              </a>
+              </button>
             </div>
 
             <button
@@ -143,6 +146,17 @@ const Login: React.FC = () => {
                 Sign up
               </Link>
             </p>
+            
+            {/* Test Credentials Note */}
+            <div className="mt-4 p-3 bg-gray-700/50 rounded-lg border border-gray-600">
+              <p className="text-xs text-gray-400 mb-2">🧪 Test Credentials:</p>
+              <div className="text-xs text-gray-500 space-y-1">
+                <div>👑 Admin: <span className="text-yellow-400">admin</span> / <span className="text-yellow-400">admin123</span></div>
+                <div>👤 User: <span className="text-yellow-400">user</span> / <span className="text-yellow-400">user123</span></div>
+                <div>🎯 Demo: <span className="text-yellow-400">demo</span> / <span className="text-yellow-400">demo123</span></div>
+                <div>🧪 Test: <span className="text-yellow-400">test</span> / <span className="text-yellow-400">test123</span></div>
+              </div>
+            </div>
           </div>
         </div>
 

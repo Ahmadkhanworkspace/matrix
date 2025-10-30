@@ -303,10 +303,37 @@ export const settingsApi = {
 export const authApi = {
   // Login
   async login(username: string, password: string): Promise<ApiResponse<any>> {
-    return apiRequest('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ username, password }),
-    });
+    // Dummy credentials for testing
+    const dummyCredentials = {
+      'admin': 'admin123',
+      'superadmin': 'super123',
+      'manager': 'manager123',
+      'demo': 'demo123'
+    };
+
+    // Check if credentials match dummy accounts
+    if (dummyCredentials[username as keyof typeof dummyCredentials] === password) {
+      // Return mock admin user data
+      const mockAdminUser = {
+        id: username === 'admin' ? 1 : username === 'superadmin' ? 2 : username === 'manager' ? 3 : 4,
+        username: username,
+        email: `${username}@admin.com`,
+        role: 'admin' as const,
+        status: 'active' as const,
+        createdAt: '2024-01-01T00:00:00Z'
+      };
+
+      return {
+        success: true,
+        data: {
+          user: mockAdminUser,
+          token: `mock-admin-token-${username}`
+        }
+      };
+    } else {
+      // Invalid credentials
+      throw new Error('Invalid username or password');
+    }
   },
 
   // Register

@@ -115,4 +115,22 @@ router.post(
   catchAsync(paymentController.cancelWithdrawal.bind(paymentController))
 );
 
+/**
+ * Webhooks (public endpoints called by gateways)
+ */
+router.post(
+  '/webhook/stripe',
+  catchAsync(paymentController.webhookStripe.bind(paymentController))
+);
+
+router.post(
+  '/webhook/coinpayments',
+  catchAsync(paymentController.webhookCoinPayments.bind(paymentController))
+);
+
+router.post(
+  '/webhook/nowpayments',
+  catchAsync(paymentController.webhookNOWPayments.bind(paymentController))
+);
+
 export default router; 

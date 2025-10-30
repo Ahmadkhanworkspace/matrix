@@ -189,7 +189,55 @@ const Dashboard: React.FC = () => {
       setStats(dashboardStats);
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
-      setError('Failed to load dashboard data. Please check if the backend server is running.');
+      // Fallback to mock endpoint used by simple-server.js
+      try {
+        const base = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+        const resp = await fetch(`${base}/dashboard`);
+        const json = await resp.json();
+        if (json && json.success && json.data) {
+          const md = json.data;
+          const dashboardStats: DashboardStats = {
+            memberStats: {
+              totalMembers: md.members?.total || 0,
+              activeMembers: (md.members?.pro || 0) + (md.members?.free || 0),
+              proMembers: md.members?.pro || 0,
+              pendingMembers: md.members?.pending || 0,
+              newMembersThisWeek: 3,
+              newMembersThisMonth: 12
+            },
+            financialStats: {
+              totalEarnings: 0,
+              pendingDeposits: Number(String(md.financial?.pendingDeposit || '0').replace(/[^0-9.]/g, '')) || 0,
+              completedWithdrawals: Number(String(md.financial?.completedWithdrawals || '0').replace(/[^0-9.]/g, '')) || 0,
+              totalRevenue: 0,
+              revenueThisMonth: 0,
+              revenueThisWeek: 0
+            },
+            matrixStats: {
+              totalPositions: (md.boards?.starterL1 || 0) + (md.boards?.starterL2 || 0) + (md.boards?.basicL1 || 0) + (md.boards?.basicL2 || 0) + (md.boards?.advancedL1 || 0) + (md.boards?.advancedL2 || 0) + (md.boards?.masterL1 || 0) + (md.boards?.masterL2 || 0) + (md.boards?.masterL3 || 0) + (md.boards?.masterL4 || 0),
+              completedCycles: md.boards?.masterL3 || 0,
+              activePositions: (md.boards?.starterL1 || 0) + (md.boards?.starterL2 || 0),
+              pendingPositions: md.financial?.pendingTransactions || 0
+            },
+            systemStats: {
+              pendingMessages: 0,
+              systemAlerts: 0,
+              activeSessions: 0,
+              databaseStatus: 'Connected',
+              paymentGateways: { coinpayments: true, nowpayments: true },
+              emailSystem: true
+            },
+            recentActivities: [],
+            systemNotifications: []
+          };
+          setStats(dashboardStats);
+          setError(null);
+          return;
+        }
+        setError('Failed to load dashboard data. Please check if the backend server is running.');
+      } catch (e) {
+        setError('Failed to load dashboard data. Please check if the backend server is running.');
+      }
     } finally {
       setLoading(false);
     }

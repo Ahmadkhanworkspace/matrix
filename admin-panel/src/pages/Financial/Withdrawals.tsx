@@ -3,439 +3,293 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Input } from '../../components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { 
   Search, 
   Filter, 
+  Download, 
+  RefreshCw, 
   CheckCircle, 
   XCircle, 
-  Eye, 
-  DollarSign, 
-  Clock,
-  User,
-  Calendar,
+  Clock, 
+  Eye,
+  DollarSign,
   CreditCard,
-  Wallet,
-  TrendingUp,
-  AlertTriangle,
-  Download,
-  Upload,
-  RefreshCw,
-  MoreHorizontal,
-  Banknote,
-  ExternalLink
+  Calendar,
+  User,
+  AlertCircle,
+  CheckCircle2,
+  Wallet
 } from 'lucide-react';
-import { api } from '../../api';
+import { adminApiService } from '../../api/adminApi';
+import { useCurrency } from '../../contexts/CurrencyContext';
+import { toast } from 'react-hot-toast';
 
 interface Withdrawal {
-  id: number;
-  user_id: number;
-  username: string;
-  email: string;
+  id: string;
+  userId: string;
   amount: number;
   currency: string;
-  payment_method: string;
-  wallet_address: string;
-  status: 'pending' | 'approved' | 'rejected' | 'processing';
-  created_at: string;
-  processed_at?: string;
-  notes?: string;
-  transaction_id?: string;
+  walletAddress: string;
+  withdrawalMethod?: string;
+  status: string;
   fee: number;
-  net_amount: number;
+  netAmount: number;
+  transactionId?: string;
+  gatewayResponse?: any;
+  metadata?: any;
+  createdAt: string;
+  processedAt?: string;
+  user: {
+    id: string;
+    username: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+  };
 }
 
-const Withdrawals: React.FC = () => {
+interface WithdrawalFilters {
+  page: number;
+  limit: number;
+  status?: string;
+  userId?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+const WithdrawalsManagement: React.FC = () => {
+  const { primaryCurrency } = useCurrency();
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
-  const [filteredWithdrawals, setFilteredWithdrawals] = useState<Withdrawal[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [methodFilter, setMethodFilter] = useState<string>('all');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(20);
-  const [selectedWithdrawals, setSelectedWithdrawals] = useState<number[]>([]);
-  const [stats, setStats] = useState({
-    total: 0,
-    pending: 0,
-    approved: 0,
-    rejected: 0,
-    processing: 0,
-    totalAmount: 0,
-    totalFees: 0
+  const [processing, setProcessing] = useState<string | null>(null);
+  const [filters, setFilters] = useState<WithdrawalFilters>({
+    page: 1,
+    limit: 20
   });
-
-  useEffect(() => {
-    fetchWithdrawals();
-  }, []);
-
-  useEffect(() => {
-    filterWithdrawals();
-    calculateStats();
-  }, [withdrawals, searchTerm, statusFilter, methodFilter]);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    pages: 0
+  });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedWithdrawals, setSelectedWithdrawals] = useState<string[]>([]);
+  const [transactionId, setTransactionId] = useState('');
 
   const fetchWithdrawals = async () => {
     try {
       setLoading(true);
-      // Mock data for now
-      const mockWithdrawals: Withdrawal[] = [
-        {
-          id: 1,
-          user_id: 1,
-          username: 'john_doe',
-          email: 'john@example.com',
-          amount: 500,
-          currency: 'USD',
-          payment_method: 'bitcoin',
-          wallet_address: '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa',
-          status: 'pending',
-          created_at: '2024-01-15T10:30:00Z',
-          fee: 12.50,
-          net_amount: 487.50
-        },
-        {
-          id: 2,
-          user_id: 2,
-          username: 'jane_smith',
-          email: 'jane@example.com',
-          amount: 250,
-          currency: 'USD',
-          payment_method: 'ethereum',
-          wallet_address: '0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6',
-          status: 'approved',
-          created_at: '2024-01-14T15:45:00Z',
-          processed_at: '2024-01-15T09:20:00Z',
-          transaction_id: '0x1234567890abcdef',
-          fee: 6.25,
-          net_amount: 243.75
-        },
-        {
-          id: 3,
-          user_id: 3,
-          username: 'bob_wilson',
-          email: 'bob@example.com',
-          amount: 1000,
-          currency: 'USD',
-          payment_method: 'bank_transfer',
-          wallet_address: '',
-          status: 'processing',
-          created_at: '2024-01-13T08:15:00Z',
-          notes: 'Processing bank transfer',
-          fee: 25.00,
-          net_amount: 975.00
-        }
-      ];
+      const response = await adminApiService.getTransactions({
+        ...filters,
+        type: 'withdrawal'
+      });
       
-      setWithdrawals(mockWithdrawals);
+      setWithdrawals(response.data || []);
+      setPagination(response.pagination || pagination);
     } catch (error) {
-      console.error('Failed to fetch withdrawals:', error);
+      console.error('Error fetching withdrawals:', error);
+      toast.error('Failed to fetch withdrawals');
     } finally {
       setLoading(false);
     }
   };
 
-  const filterWithdrawals = () => {
-    let filtered = withdrawals;
+  useEffect(() => {
+    fetchWithdrawals();
+  }, [filters]);
 
-    // Search filter
-    if (searchTerm) {
-      filtered = filtered.filter(withdrawal =>
-        withdrawal.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        withdrawal.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        withdrawal.wallet_address.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // Status filter
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(withdrawal => withdrawal.status === statusFilter);
-    }
-
-    // Method filter
-    if (methodFilter !== 'all') {
-      filtered = filtered.filter(withdrawal => withdrawal.payment_method === methodFilter);
-    }
-
-    setFilteredWithdrawals(filtered);
+  const handleFilterChange = (key: keyof WithdrawalFilters, value: any) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value,
+      page: 1
+    }));
   };
 
-  const calculateStats = () => {
-    const total = withdrawals.length;
-    const pending = withdrawals.filter(w => w.status === 'pending').length;
-    const approved = withdrawals.filter(w => w.status === 'approved').length;
-    const rejected = withdrawals.filter(w => w.status === 'rejected').length;
-    const processing = withdrawals.filter(w => w.status === 'processing').length;
-    const totalAmount = withdrawals
-      .filter(w => w.status === 'approved')
-      .reduce((sum, w) => sum + w.amount, 0);
-    const totalFees = withdrawals
-      .filter(w => w.status === 'approved')
-      .reduce((sum, w) => sum + w.fee, 0);
-
-    setStats({ total, pending, approved, rejected, processing, totalAmount, totalFees });
+  const handleSearch = () => {
+    setFilters(prev => ({
+      ...prev,
+      userId: searchTerm,
+      page: 1
+    }));
   };
 
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
-  };
-
-  const handleStatusFilter = (status: string) => {
-    setStatusFilter(status);
-  };
-
-  const handleMethodFilter = (method: string) => {
-    setMethodFilter(method);
-  };
-
-  const handleSelectWithdrawal = (withdrawalId: number) => {
-    setSelectedWithdrawals(prev => 
-      prev.includes(withdrawalId) 
-        ? prev.filter(id => id !== withdrawalId)
-        : [...prev, withdrawalId]
-    );
-  };
-
-  const handleSelectAll = () => {
-    if (selectedWithdrawals.length === filteredWithdrawals.length) {
-      setSelectedWithdrawals([]);
-    } else {
-      setSelectedWithdrawals(filteredWithdrawals.map(withdrawal => withdrawal.id));
-    }
-  };
-
-  const handleBulkAction = async (action: string) => {
-    if (selectedWithdrawals.length === 0) return;
-
+  const handleProcessWithdrawal = async (withdrawalId: string, action: 'approve' | 'reject' | 'complete', notes?: string) => {
     try {
-      switch (action) {
-        case 'approve':
-          await Promise.all(selectedWithdrawals.map(id => api.payment.approveWithdrawal(id)));
-          break;
-        case 'reject':
-          await Promise.all(selectedWithdrawals.map(id => api.payment.rejectWithdrawal(id)));
-          break;
+      setProcessing(withdrawalId);
+      
+      const updateData: any = {
+        status: action === 'approve' ? 'APPROVED' : action === 'reject' ? 'CANCELLED' : 'COMPLETED'
+      };
+
+      if (action === 'complete' && transactionId) {
+        updateData.transactionId = transactionId;
       }
+
+      if (notes) {
+        updateData.notes = notes;
+      }
+
+      await adminApiService.updateTransaction(withdrawalId, updateData);
+
+      toast.success(`Withdrawal ${action}d successfully`);
+      setTransactionId('');
       fetchWithdrawals();
+    } catch (error) {
+      console.error('Error processing withdrawal:', error);
+      toast.error(`Failed to ${action} withdrawal`);
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const handleBulkProcess = async (action: 'approve' | 'reject') => {
+    if (selectedWithdrawals.length === 0) {
+      toast.error('Please select withdrawals to process');
+      return;
+    }
+
+    try {
+      setProcessing('bulk');
+      
+      await adminApiService.bulkActionUsers(selectedWithdrawals, action);
+      
+      toast.success(`${selectedWithdrawals.length} withdrawals ${action}d successfully`);
       setSelectedWithdrawals([]);
+      fetchWithdrawals();
     } catch (error) {
-      console.error('Bulk action failed:', error);
+      console.error('Error bulk processing withdrawals:', error);
+      toast.error(`Failed to ${action} withdrawals`);
+    } finally {
+      setProcessing(null);
     }
   };
 
-  const handleApproveWithdrawal = async (withdrawalId: number) => {
-    try {
-      // await api.payment.approveWithdrawal(withdrawalId);
-      setWithdrawals(prev => prev.map(w => 
-        w.id === withdrawalId ? { ...w, status: 'approved', processed_at: new Date().toISOString() } : w
-      ));
-    } catch (error) {
-      console.error('Failed to approve withdrawal:', error);
-    }
-  };
-
-  const handleRejectWithdrawal = async (withdrawalId: number) => {
-    try {
-      // await api.payment.rejectWithdrawal(withdrawalId);
-      setWithdrawals(prev => prev.map(w => 
-        w.id === withdrawalId ? { ...w, status: 'rejected', processed_at: new Date().toISOString() } : w
-      ));
-    } catch (error) {
-      console.error('Failed to reject withdrawal:', error);
-    }
-  };
-
-  const handleExport = () => {
-    const csvContent = [
-      ['ID', 'Username', 'Email', 'Amount', 'Currency', 'Method', 'Status', 'Date'],
-      ...filteredWithdrawals.map(withdrawal => [
-        withdrawal.id,
-        withdrawal.username,
-        withdrawal.email,
-        withdrawal.amount.toString(),
-        withdrawal.currency,
-        withdrawal.payment_method,
-        withdrawal.status,
-        withdrawal.created_at
-      ])
-    ].map(row => row.join(',')).join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'withdrawals.csv';
-    a.click();
-    window.URL.revokeObjectURL(url);
+  const formatCurrency = (amount: number, currency: string = primaryCurrency) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency,
+      minimumFractionDigits: 2
+    }).format(amount);
   };
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return <Badge className="bg-green-100 text-green-800">Approved</Badge>;
-      case 'pending':
-        return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>;
-      case 'rejected':
-        return <Badge className="bg-red-100 text-red-800">Rejected</Badge>;
-      case 'processing':
-        return <Badge className="bg-blue-100 text-blue-800">Processing</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
-    }
-  };
+    const statusConfig = {
+      PENDING: { color: 'bg-yellow-100 text-yellow-800', icon: Clock },
+      APPROVED: { color: 'bg-blue-100 text-blue-800', icon: CheckCircle },
+      PROCESSING: { color: 'bg-purple-100 text-purple-800', icon: Clock },
+      COMPLETED: { color: 'bg-green-100 text-green-800', icon: CheckCircle },
+      FAILED: { color: 'bg-red-100 text-red-800', icon: XCircle },
+      CANCELLED: { color: 'bg-gray-100 text-gray-800', icon: XCircle }
+    };
 
-  const getMethodIcon = (method: string) => {
-    switch (method.toLowerCase()) {
-      case 'bitcoin':
-      case 'btc':
-        return <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center text-white text-xs font-bold">₿</div>;
-      case 'ethereum':
-      case 'eth':
-        return <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">Ξ</div>;
-      case 'tron':
-      case 'trx':
-        return <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">T</div>;
-      case 'bank_transfer':
-        return <Banknote className="h-6 w-6 text-gray-400" />;
-      default:
-        return <CreditCard className="h-6 w-6 text-gray-400" />;
-    }
-  };
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.PENDING;
+    const Icon = config.icon;
 
-  const paginatedWithdrawals = filteredWithdrawals.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
-  const totalPages = Math.ceil(filteredWithdrawals.length / itemsPerPage);
-
-  if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <span className="ml-2 text-gray-600">Loading withdrawals...</span>
-      </div>
+      <Badge className={config.color}>
+        <Icon className="h-3 w-3 mr-1" />
+        {status}
+      </Badge>
     );
-  }
+  };
+
+  const getWithdrawalMethodBadge = (method?: string) => {
+    if (!method) return <Badge className="bg-gray-100 text-gray-800">Manual</Badge>;
+    
+    const methodColors = {
+      CRYPTO: 'bg-orange-100 text-orange-800',
+      BANK_TRANSFER: 'bg-blue-100 text-blue-800',
+      PAYPAL: 'bg-yellow-100 text-yellow-800',
+      STRIPE: 'bg-indigo-100 text-indigo-800'
+    };
+
+    return (
+      <Badge className={methodColors[method as keyof typeof methodColors] || 'bg-gray-100 text-gray-800'}>
+        {method.replace('_', ' ')}
+      </Badge>
+    );
+  };
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Withdrawals</h1>
-          <p className="text-gray-600">Manage member withdrawal requests</p>
+          <h1 className="text-3xl font-bold text-gray-900">Withdrawals Management</h1>
+          <p className="text-gray-600 mt-1">Manage and process user withdrawal requests</p>
         </div>
-        <div className="flex space-x-2">
-          <Button variant="outline" onClick={handleExport}>
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-          <Button variant="outline" onClick={fetchWithdrawals}>
+        <div className="flex items-center space-x-2">
+          <Button onClick={fetchWithdrawals} variant="outline" size="sm">
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
+          <Button variant="outline" size="sm">
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
         </div>
-      </div>
-
-      {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <DollarSign className="h-8 w-8 text-blue-600" />
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-600">Total Withdrawals</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <Clock className="h-8 w-8 text-yellow-600" />
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-600">Pending</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.pending}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <CheckCircle className="h-8 w-8 text-green-600" />
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-600">Approved</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.approved}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <TrendingUp className="h-8 w-8 text-green-600" />
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-600">Total Amount</p>
-                <p className="text-2xl font-bold text-gray-900">${stats.totalAmount.toFixed(2)}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Filters */}
       <Card>
-        <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search withdrawals..."
-                  value={searchTerm}
-                  onChange={handleSearch}
-                  className="pl-10"
-                />
-              </div>
-            </div>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Filter className="h-5 w-5 mr-2" />
+            Filters
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-              <select
-                value={statusFilter}
-                onChange={(e) => handleStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="processing">Processing</option>
-                <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
-              </select>
+              <Select value={filters.status || ''} onValueChange={(value) => handleFilterChange('status', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Status</SelectItem>
+                  <SelectItem value="PENDING">Pending</SelectItem>
+                  <SelectItem value="APPROVED">Approved</SelectItem>
+                  <SelectItem value="PROCESSING">Processing</SelectItem>
+                  <SelectItem value="COMPLETED">Completed</SelectItem>
+                  <SelectItem value="FAILED">Failed</SelectItem>
+                  <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
-              <select
-                value={methodFilter}
-                onChange={(e) => handleMethodFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Methods</option>
-                <option value="bitcoin">Bitcoin</option>
-                <option value="ethereum">Ethereum</option>
-                <option value="tron">Tron</option>
-                <option value="bank_transfer">Bank Transfer</option>
-              </select>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <Input
+                type="date"
+                value={filters.startDate || ''}
+                onChange={(e) => handleFilterChange('startDate', e.target.value)}
+              />
             </div>
-            <div className="flex items-end">
-              <Button variant="outline" className="w-full">
-                <Filter className="h-4 w-4 mr-2" />
-                More Filters
-              </Button>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <Input
+                type="date"
+                value={filters.endDate || ''}
+                onChange={(e) => handleFilterChange('endDate', e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Search User</label>
+              <div className="flex">
+                <Input
+                  placeholder="Username or email"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                <Button onClick={handleSearch} variant="outline" className="ml-2">
+                  <Search className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -444,28 +298,28 @@ const Withdrawals: React.FC = () => {
       {/* Bulk Actions */}
       {selectedWithdrawals.length > 0 && (
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">
                 {selectedWithdrawals.length} withdrawal(s) selected
               </span>
-              <div className="flex space-x-2">
+              <div className="flex items-center space-x-2">
                 <Button
-                  size="sm"
-                  onClick={() => handleBulkAction('approve')}
+                  onClick={() => handleBulkProcess('approve')}
+                  disabled={processing === 'bulk'}
                   className="bg-green-600 hover:bg-green-700"
                 >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Approve All
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Approve Selected
                 </Button>
                 <Button
-                  size="sm"
+                  onClick={() => handleBulkProcess('reject')}
+                  disabled={processing === 'bulk'}
                   variant="outline"
-                  onClick={() => handleBulkAction('reject')}
-                  className="text-red-600 border-red-600 hover:bg-red-50"
+                  className="text-red-600 border-red-300 hover:bg-red-50"
                 >
                   <XCircle className="h-4 w-4 mr-2" />
-                  Reject All
+                  Reject Selected
                 </Button>
               </div>
             </div>
@@ -476,152 +330,190 @@ const Withdrawals: React.FC = () => {
       {/* Withdrawals Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Withdrawals ({filteredWithdrawals.length})</CardTitle>
+          <CardTitle className="flex items-center justify-between">
+            <span>Withdrawals ({pagination.total})</span>
+            <div className="text-sm text-gray-500">
+              Page {pagination.page} of {pagination.pages}
+            </div>
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4">
-                    <input
-                      type="checkbox"
-                      checked={selectedWithdrawals.length === filteredWithdrawals.length && filteredWithdrawals.length > 0}
-                      onChange={handleSelectAll}
-                      className="rounded border-gray-300"
-                    />
-                  </th>
-                  <th className="text-left py-3 px-4">User</th>
-                  <th className="text-left py-3 px-4">Amount</th>
-                  <th className="text-left py-3 px-4">Method</th>
-                  <th className="text-left py-3 px-4">Status</th>
-                  <th className="text-left py-3 px-4">Date</th>
-                  <th className="text-left py-3 px-4">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedWithdrawals.map((withdrawal) => (
-                  <tr key={withdrawal.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4">
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
+              <span className="ml-2 text-gray-600">Loading withdrawals...</span>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full table-auto">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left p-2">
                       <input
                         type="checkbox"
-                        checked={selectedWithdrawals.includes(withdrawal.id)}
-                        onChange={() => handleSelectWithdrawal(withdrawal.id)}
-                        className="rounded border-gray-300"
+                        checked={selectedWithdrawals.length === withdrawals.length && withdrawals.length > 0}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedWithdrawals(withdrawals.map(w => w.id));
+                          } else {
+                            setSelectedWithdrawals([]);
+                          }
+                        }}
                       />
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center">
-                        <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                          <User className="h-5 w-5 text-gray-600" />
+                    </th>
+                    <th className="text-left p-2">User</th>
+                    <th className="text-left p-2">Amount</th>
+                    <th className="text-left p-2">Fee</th>
+                    <th className="text-left p-2">Net Amount</th>
+                    <th className="text-left p-2">Method</th>
+                    <th className="text-left p-2">Wallet</th>
+                    <th className="text-left p-2">Status</th>
+                    <th className="text-left p-2">Date</th>
+                    <th className="text-left p-2">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {withdrawals.map((withdrawal) => (
+                    <tr key={withdrawal.id} className="border-b hover:bg-gray-50">
+                      <td className="p-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedWithdrawals.includes(withdrawal.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedWithdrawals(prev => [...prev, withdrawal.id]);
+                            } else {
+                              setSelectedWithdrawals(prev => prev.filter(id => id !== withdrawal.id));
+                            }
+                          }}
+                        />
+                      </td>
+                      <td className="p-2">
+                        <div>
+                          <div className="font-medium">{withdrawal.user.username}</div>
+                          <div className="text-sm text-gray-500">{withdrawal.user.email}</div>
                         </div>
-                        <div className="ml-3">
-                          <div className="font-medium text-gray-900">{withdrawal.username}</div>
-                          <div className="text-sm text-gray-500">{withdrawal.email}</div>
-                          {withdrawal.wallet_address && (
-                            <div className="text-xs text-gray-400 truncate max-w-32">
-                              {withdrawal.wallet_address}
-                            </div>
+                      </td>
+                      <td className="p-2">
+                        <div className="flex items-center">
+                          <DollarSign className="h-4 w-4 text-red-600 mr-1" />
+                          <span className="font-medium">{formatCurrency(withdrawal.amount, withdrawal.currency)}</span>
+                        </div>
+                      </td>
+                      <td className="p-2">
+                        <span className="text-sm text-gray-600">{formatCurrency(withdrawal.fee, withdrawal.currency)}</span>
+                      </td>
+                      <td className="p-2">
+                        <div className="flex items-center">
+                          <Wallet className="h-4 w-4 text-green-600 mr-1" />
+                          <span className="font-medium text-green-600">{formatCurrency(withdrawal.netAmount, withdrawal.currency)}</span>
+                        </div>
+                      </td>
+                      <td className="p-2">
+                        {getWithdrawalMethodBadge(withdrawal.withdrawalMethod)}
+                      </td>
+                      <td className="p-2">
+                        <div className="max-w-xs truncate text-sm text-gray-600" title={withdrawal.walletAddress}>
+                          {withdrawal.walletAddress}
+                        </div>
+                      </td>
+                      <td className="p-2">
+                        {getStatusBadge(withdrawal.status)}
+                      </td>
+                      <td className="p-2">
+                        <div className="flex items-center text-sm text-gray-600">
+                          <Calendar className="h-4 w-4 mr-1" />
+                          {new Date(withdrawal.createdAt).toLocaleDateString()}
+                        </div>
+                      </td>
+                      <td className="p-2">
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {/* View details */}}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {withdrawal.status === 'PENDING' && (
+                            <>
+                              <Button
+                                size="sm"
+                                onClick={() => handleProcessWithdrawal(withdrawal.id, 'approve')}
+                                disabled={processing === withdrawal.id}
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                              >
+                                <CheckCircle className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => handleProcessWithdrawal(withdrawal.id, 'reject')}
+                                disabled={processing === withdrawal.id}
+                                variant="outline"
+                                className="text-red-600 border-red-300 hover:bg-red-50"
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                          {withdrawal.status === 'APPROVED' && (
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                const txId = prompt('Enter transaction ID:');
+                                if (txId) {
+                                  setTransactionId(txId);
+                                  handleProcessWithdrawal(withdrawal.id, 'complete');
+                                }
+                              }}
+                              disabled={processing === withdrawal.id}
+                              className="bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                              Complete
+                            </Button>
                           )}
                         </div>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="font-medium text-lg">${withdrawal.amount.toFixed(2)}</div>
-                      <div className="text-sm text-gray-500">
-                        Fee: ${withdrawal.fee.toFixed(2)} | Net: ${withdrawal.net_amount.toFixed(2)}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center">
-                        {getMethodIcon(withdrawal.payment_method)}
-                        <span className="ml-2 text-sm">{withdrawal.payment_method}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      {getStatusBadge(withdrawal.status)}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="text-sm text-gray-500">
-                        {new Date(withdrawal.created_at).toLocaleDateString()}
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        {new Date(withdrawal.created_at).toLocaleTimeString()}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex space-x-2">
-                        <Button size="sm" variant="outline">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        {withdrawal.status === 'pending' && (
-                          <>
-                            <Button
-                              size="sm"
-                              onClick={() => handleApproveWithdrawal(withdrawal.id)}
-                              className="bg-green-600 hover:bg-green-700 text-white"
-                            >
-                              <CheckCircle className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleRejectWithdrawal(withdrawal.id)}
-                              className="text-red-600 border-red-600 hover:bg-red-50"
-                            >
-                              <XCircle className="h-4 w-4" />
-                            </Button>
-                          </>
-                        )}
-                        {withdrawal.transaction_id && (
-                          <Button size="sm" variant="outline">
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                        )}
-                        <Button size="sm" variant="outline">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-6">
-              <div className="text-sm text-gray-500">
-                Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredWithdrawals.length)} of {filteredWithdrawals.length} results
-              </div>
-              <div className="flex space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-                <span className="px-3 py-2 text-sm text-gray-600">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </Button>
-              </div>
+              {withdrawals.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  <AlertCircle className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                  <p>No withdrawals found</p>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Pagination */}
+      {pagination.pages > 1 && (
+        <div className="flex items-center justify-center space-x-2">
+          <Button
+            variant="outline"
+            onClick={() => handleFilterChange('page', pagination.page - 1)}
+            disabled={pagination.page === 1}
+          >
+            Previous
+          </Button>
+          <span className="text-sm text-gray-600">
+            Page {pagination.page} of {pagination.pages}
+          </span>
+          <Button
+            variant="outline"
+            onClick={() => handleFilterChange('page', pagination.page + 1)}
+            disabled={pagination.page === pagination.pages}
+          >
+            Next
+          </Button>
+        </div>
+      )}
     </div>
   );
 };
 
-export default Withdrawals; 
+export default WithdrawalsManagement;

@@ -399,4 +399,281 @@ enum BonusStatus {
 enum WithdrawalFeeType {
   PERCENTAGE
   FIXED
-} 
+}
+
+// Banner model for content management
+model Banner {
+  id            String   @id @default(cuid())
+  name          String
+  imageUrl      String
+  altText       String
+  linkUrl       String
+  type          String   // banner, popup, sidebar, notification
+  status        String   // active, inactive, scheduled, draft
+  position      String   // header, footer, sidebar, center, overlay
+  priority      String   @default("medium") // low, medium, high
+  targetAudience String[] // Array of audience types
+  startDate     DateTime?
+  endDate       DateTime?
+  budget        Float    @default(0)
+  spent         Float    @default(0)
+  impressions   Int      @default(0)
+  clicks        Int      @default(0)
+  ctr           Float    @default(0)
+  dimensions    Json?    // {width: number, height: number}
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  impressions_records BannerImpression[]
+  clicks_records      BannerClick[]
+  
+  @@index([status])
+  @@index([type])
+  @@index([startDate])
+  @@map("banners")
+}
+
+// Banner impression tracking
+model BannerImpression {
+  id        String   @id @default(cuid())
+  bannerId  String
+  banner    Banner   @relation(fields: [bannerId], references: [id], onDelete: Cascade)
+  userId    String?
+  position  String?
+  timestamp DateTime @default(now())
+  
+  @@index([bannerId])
+  @@index([timestamp])
+  @@map("banner_impressions")
+}
+
+// Banner click tracking
+model BannerClick {
+  id        String   @id @default(cuid())
+  bannerId  String
+  banner    Banner   @relation(fields: [bannerId], references: [id], onDelete: Cascade)
+  userId    String?
+  position  String?
+  timestamp DateTime @default(now())
+  
+  @@index([bannerId])
+  @@index([timestamp])
+  @@map("banner_clicks")
+}
+
+// Email template model
+model EmailTemplate {
+  id             String   @id @default(cuid())
+  name           String
+  subject        String
+  content        String   @db.Text
+  type           String   // welcome, bonus, withdrawal, matrix-completion, etc.
+  status         String   @default("draft") // active, inactive, draft
+  variables      String[] // Array of variable names like {{username}}
+  targetAudience String[] // Array of audience types
+  sendCount      Int      @default(0)
+  openRate       Float    @default(0)
+  clickRate      Float    @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  @@index([status])
+  @@index([type])
+  @@map("email_templates")
+}
+
+// Promotional content model
+model PromotionalContent {
+  id             String   @id @default(cuid())
+  title          String
+  type           String   // banner, text-ad, email, popup, notification
+  content        String   @db.Text
+  status         String   @default("draft") // active, inactive, scheduled, draft
+  targetAudience String[] // Array of audience types
+  startDate      DateTime?
+  endDate        DateTime?
+  priority       String   @default("medium") // low, medium, high
+  budget         Float    @default(0)
+  spent          Float    @default(0)
+  impressions    Int      @default(0)
+  clicks         Int      @default(0)
+  ctr            Float    @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  @@index([status])
+  @@index([type])
+  @@index([startDate])
+  @@map("promotional_content")
+}
+
+// Notification model
+model Notification {
+  id                String   @id @default(cuid())
+  title             String
+  message           String   @db.Text
+  type              String   // system, bonus, withdrawal, matrix, leadership, maintenance, custom
+  priority          String   @default("medium") // low, medium, high, urgent
+  status            String   @default("draft") // active, inactive, scheduled, sent, draft
+  targetAudience    String[] // Array of audience types
+  sendDate          DateTime?
+  sentAt            DateTime?
+  totalSent         Int      @default(0)
+  isGlobal          Boolean  @default(false)
+  requiresAction    Boolean  @default(false)
+  actionUrl         String?
+  actionText        String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  userNotifications UserNotification[]
+  
+  @@index([status])
+  @@index([type])
+  @@index([sendDate])
+  @@map("notifications")
+}
+
+// User notification model (for tracking individual user notifications)
+model UserNotification {
+  id             String   @id @default(cuid())
+  userId         String
+  notificationId String
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  status         String   @default("unread") // read, unread
+  sentAt         DateTime @default(now())
+  readAt         DateTime?
+  
+  @@unique([userId, notificationId])
+  @@index([userId])
+  @@index([status])
+  @@map("user_notifications")
+}
+
+// Contest model for marketing tools
+model Contest {
+  id          String   @id @default(cuid())
+  name        String
+  description String   @db.Text
+  type        String   // referral, matrix, earnings, activity
+  status      String   @default("draft") // draft, active, paused, completed, cancelled
+  startDate   DateTime
+  endDate     DateTime
+  prize       String
+  prizeValue  Float    @default(0)
+  currency    String   @default("USD")
+  rules       Json?    // Contest rules and conditions
+  participants Int     @default(0)
+  winners     Json?    // Array of winner information
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  entries     ContestEntry[]
+  
+  @@index([status])
+  @@index([startDate])
+  @@index([endDate])
+  @@map("contests")
+}
+
+// Contest entry model
+model ContestEntry {
+  id        String   @id @default(cuid())
+  contestId String
+  contest   Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  userId    String
+  score     Float    @default(0)
+  data      Json?    // Entry-specific data
+  rank      Int?
+  isWinner  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([contestId, userId])
+  @@index([contestId])
+  @@index([score])
+  @@map("contest_entries")
+}
+
+// Marketing campaign model
+model MarketingCampaign {
+  id          String   @id @default(cuid())
+  name        String
+  type        String   // email, banner, notification, social
+  status      String   @default("draft") // draft, active, paused, completed, cancelled
+  description String?  @db.Text
+  startDate   DateTime
+  endDate     DateTime?
+  budget      Float    @default(0)
+  spent       Float    @default(0)
+  impressions Int      @default(0)
+  clicks      Int      @default(0)
+  conversions Int      @default(0)
+  ctr         Float    @default(0)
+  conversionRate Float @default(0)
+  targetAudience String[] // Array of audience types
+  content     Json?    // Campaign content and settings
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([status])
+  @@index([type])
+  @@index([startDate])
+  @@map("marketing_campaigns")
+}
+
+// System log model for monitoring
+model Log {
+  id        String   @id @default(cuid())
+  level     String   // info, warn, error, debug
+  message   String   @db.Text
+  context   Json?    // Additional context data
+  userId    String?
+  action    String?
+  resource  String?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  
+  @@index([level])
+  @@index([createdAt])
+  @@index([userId])
+  @@map("logs")
+}
+
+// Backup model for system monitoring
+model Backup {
+  id          String   @id @default(cuid())
+  type        String   // database, files, full
+  status      String   // pending, in_progress, completed, failed
+  filename    String?
+  fileSize    BigInt?
+  location    String?
+  description String?
+  error       String?
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+  @@map("backups")
+}
+
+// System configuration model
+model SystemConfig {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String   @db.Text
+  description String?  @db.Text
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([key])
+  @@map("system_configs")
+}

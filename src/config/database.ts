@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { logger } from '@/utils/logger';
+import { logger } from '../utils/logger';
 
 class Database {
   private prisma: PrismaClient;
@@ -56,6 +56,13 @@ class Database {
       logger.info('✅ Database connected successfully');
     } catch (error) {
       logger.error('❌ Database connection failed:', error);
+      
+      // In development, don't crash the server if database is not available
+      if (process.env.NODE_ENV === 'development') {
+        logger.warn('⚠️ Running in development mode without database connection');
+        return;
+      }
+      
       throw error;
     }
   }
@@ -69,6 +76,11 @@ class Database {
       logger.info('✅ Database disconnected successfully');
     } catch (error) {
       logger.error('❌ Database disconnection failed:', error);
+      // Don't throw error during shutdown
+      if (process.env.NODE_ENV === 'development') {
+        logger.warn('⚠️ Database disconnection failed in development mode');
+        return;
+      }
       throw error;
     }
   }

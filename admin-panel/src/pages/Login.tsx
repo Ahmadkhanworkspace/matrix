@@ -27,7 +27,7 @@ const Login: React.FC = () => {
     try {
       await login(data.username, data.password);
       toast.success('Login successful!');
-      navigate('/');
+      navigate('/admin');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Login failed');
     } finally {
@@ -154,6 +154,18 @@ const Login: React.FC = () => {
               <span className="px-2 bg-gray-50 text-gray-500">System Information</span>
             </div>
           </div>
+          
+          {/* Test Credentials */}
+          <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <p className="text-xs text-blue-800 mb-2 font-medium">🧪 Test Admin Credentials:</p>
+            <div className="text-xs text-blue-600 space-y-1">
+              <div>👑 Admin: <span className="font-mono">admin</span> / <span className="font-mono">admin123</span></div>
+              <div>🚀 Super Admin: <span className="font-mono">superadmin</span> / <span className="font-mono">super123</span></div>
+              <div>👨‍💼 Manager: <span className="font-mono">manager</span> / <span className="font-mono">manager123</span></div>
+              <div>🎯 Demo: <span className="font-mono">demo</span> / <span className="font-mono">demo123</span></div>
+            </div>
+          </div>
+          
           <div className="mt-4 text-center text-xs text-gray-500">
             <p>Matrix MLM Admin Panel v1.0.0</p>
             <p>© 2024 Matrix MLM System. All rights reserved.</p>

@@ -7,7 +7,7 @@ export class AdminApiService {
 
   constructor() {
     this.baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
-    this.token = localStorage.getItem('authToken');
+    this.token = localStorage.getItem('admin_token');
   }
 
   private getHeaders(): HeadersInit {
@@ -22,7 +22,7 @@ export class AdminApiService {
     return headers;
   }
 
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  private async request(endpoint: string, options: RequestInit = {}): Promise<any> {
     const url = `${this.baseUrl}${endpoint}`;
     const response = await fetch(url, {
       ...options,
@@ -148,6 +148,23 @@ export class AdminApiService {
     });
   }
 
+  // eWallet Transactions API
+  async createEWalletTransaction(data: {
+    userId: string;
+    type: string;
+    amount: number;
+    currency: string;
+    description: string;
+  }) {
+    return this.request('/admin/transactions', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...data,
+        referenceType: 'EWALLET',
+      }),
+    });
+  }
+
   // Bonuses API
   async getBonuses(params: {
     page?: number;
@@ -169,20 +186,8 @@ export class AdminApiService {
     return this.request(`/admin/bonuses/${bonusId}`);
   }
 
-  // System Stats API
-  async getSystemStats() {
-    return this.request('/admin/stats');
-  }
-
   async getDashboardStats() {
     return this.request('/admin/dashboard-stats');
-  }
-
-  // Backup & Reset API
-  async createBackup() {
-    return this.request('/admin/backup', {
-      method: 'POST',
-    });
   }
 
   async resetSystem() {
@@ -230,6 +235,101 @@ export class AdminApiService {
       method: 'POST',
       body: JSON.stringify(template),
     });
+  }
+
+  // System Tools API
+  async getSystemHealth() {
+    return this.request('/admin/system/health');
+  }
+
+  async getSystemLogs(params: {
+    page?: number;
+    limit?: number;
+    level?: string;
+    startDate?: string;
+    endDate?: string;
+  } = {}) {
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) {
+        queryParams.append(key, value.toString());
+      }
+    });
+    
+    return this.request(`/admin/system/logs?${queryParams.toString()}`);
+  }
+
+  async clearLogs(data: { olderThan: string }) {
+    return this.request('/admin/system/logs', {
+      method: 'DELETE',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getBackupHistory(params: {
+    page?: number;
+    limit?: number;
+    type?: string;
+    status?: string;
+  } = {}) {
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) {
+        queryParams.append(key, value.toString());
+      }
+    });
+    
+    return this.request(`/admin/system/backups?${queryParams.toString()}`);
+  }
+
+  async createBackup(data: { type?: string } = {}) {
+    return this.request('/admin/system/backups', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getSystemConfig() {
+    return this.request('/admin/system/config');
+  }
+
+  async updateSystemConfig(data: {
+    key: string;
+    value: string;
+    description?: string;
+  }) {
+    return this.request('/admin/system/config', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getSystemStats() {
+    return this.request('/admin/system/stats');
+  }
+
+  async restartApplication() {
+    return this.request('/admin/system/restart', {
+      method: 'POST',
+    });
+  }
+
+  async clearCache() {
+    return this.request('/admin/system/clear-cache', {
+      method: 'POST',
+    });
+  }
+
+  async getServerInfo() {
+    return this.request('/admin/system/server-info');
+  }
+
+  async getMetrics() {
+    return this.request('/admin/system/metrics');
+  }
+
+  async testDatabaseConnection() {
+    return this.request('/admin/system/test-db');
   }
 }
 

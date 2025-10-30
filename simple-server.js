@@ -62,6 +62,49 @@ app.get('/api/dashboard', (req, res) => {
   });
 });
 
+// User stats overview for admin dashboard
+app.get('/api/users/stats/overview', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      totalUsers: mockData.members.total,
+      activeUsers: mockData.members.pro + mockData.members.free,
+      proUsers: mockData.members.pro,
+      pendingUsers: mockData.members.pending,
+      newUsersThisWeek: 3,
+      newUsersThisMonth: 12
+    }
+  });
+});
+
+// Matrix level stats
+app.get('/api/matrix/level-stats', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      totalPositions: mockData.boards.starterL1 + mockData.boards.starterL2 + mockData.boards.basicL1 + mockData.boards.basicL2 + mockData.boards.advancedL1 + mockData.boards.advancedL2 + mockData.boards.masterL1 + mockData.boards.masterL2 + mockData.boards.masterL3 + mockData.boards.masterL4,
+      completedCycles: mockData.boards.masterL3,
+      activePositions: mockData.boards.starterL1 + mockData.boards.starterL2,
+      pendingPositions: mockData.system.pendingTransactions || 0
+    }
+  });
+});
+
+// Payment stats
+app.get('/api/payments/stats', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      totalEarnings: 12500,
+      pendingDeposits: 0,
+      completedWithdrawals: 11,
+      totalRevenue: 28500,
+      revenueThisMonth: 3200,
+      revenueThisWeek: 850
+    }
+  });
+});
+
 app.get('/api/members', (req, res) => {
   res.json({
     success: true,

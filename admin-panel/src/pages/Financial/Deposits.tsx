@@ -3,387 +3,300 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Input } from '../../components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { 
   Search, 
   Filter, 
+  Download, 
+  RefreshCw, 
   CheckCircle, 
   XCircle, 
-  Eye, 
-  DollarSign, 
-  Clock,
-  User,
-  Calendar,
+  Clock, 
+  Eye,
+  DollarSign,
   CreditCard,
-  Wallet,
-  TrendingUp,
-  AlertTriangle,
-  Download,
-  Upload,
-  RefreshCw,
-  MoreHorizontal
+  Calendar,
+  User,
+  AlertCircle,
+  CheckCircle2
 } from 'lucide-react';
-import { api } from '../../api';
+import { adminApiService } from '../../api/adminApi';
+import { useCurrency } from '../../contexts/CurrencyContext';
+import { toast } from 'react-hot-toast';
 
 interface Deposit {
-  id: number;
-  user_id: number;
-  username: string;
-  email: string;
+  id: string;
+  userId: string;
   amount: number;
   currency: string;
-  payment_method: string;
-  transaction_id: string;
-  status: 'pending' | 'approved' | 'rejected';
-  created_at: string;
-  processed_at?: string;
-  notes?: string;
-  wallet_address?: string;
-  payment_proof?: string;
+  paymentMethod: string;
+  paymentGateway: string;
+  status: string;
+  description: string;
+  transactionId?: string;
+  gatewayResponse?: any;
+  createdAt: string;
+  processedAt?: string;
+  user: {
+    id: string;
+    username: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+  };
+  gatewayConfig: {
+    name: string;
+    gateway: string;
+  };
 }
 
-const Deposits: React.FC = () => {
+interface DepositFilters {
+  page: number;
+  limit: number;
+  status?: string;
+  gateway?: string;
+  userId?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+const DepositsManagement: React.FC = () => {
+  const { primaryCurrency } = useCurrency();
   const [deposits, setDeposits] = useState<Deposit[]>([]);
-  const [filteredDeposits, setFilteredDeposits] = useState<Deposit[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [methodFilter, setMethodFilter] = useState<string>('all');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(20);
-  const [selectedDeposits, setSelectedDeposits] = useState<number[]>([]);
-  const [stats, setStats] = useState({
-    total: 0,
-    pending: 0,
-    approved: 0,
-    rejected: 0,
-    totalAmount: 0
+  const [processing, setProcessing] = useState<string | null>(null);
+  const [filters, setFilters] = useState<DepositFilters>({
+    page: 1,
+    limit: 20
   });
-
-  useEffect(() => {
-    fetchDeposits();
-  }, []);
-
-  useEffect(() => {
-    filterDeposits();
-    calculateStats();
-  }, [deposits, searchTerm, statusFilter, methodFilter]);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    pages: 0
+  });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedDeposits, setSelectedDeposits] = useState<string[]>([]);
 
   const fetchDeposits = async () => {
     try {
       setLoading(true);
-      const response = await api.payment.getDeposits();
-      if (response.success) {
-        setDeposits(response.data || []);
-      }
+      const response = await adminApiService.getTransactions({
+        ...filters,
+        type: 'deposit'
+      });
+      
+      setDeposits(response.data || []);
+      setPagination(response.pagination || pagination);
     } catch (error) {
-      console.error('Failed to fetch deposits:', error);
+      console.error('Error fetching deposits:', error);
+      toast.error('Failed to fetch deposits');
     } finally {
       setLoading(false);
     }
   };
 
-  const filterDeposits = () => {
-    let filtered = deposits;
+  useEffect(() => {
+    fetchDeposits();
+  }, [filters]);
 
-    // Search filter
-    if (searchTerm) {
-      filtered = filtered.filter(deposit =>
-        deposit.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        deposit.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        deposit.transaction_id.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+  const handleFilterChange = (key: keyof DepositFilters, value: any) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value,
+      page: 1
+    }));
+  };
+
+  const handleSearch = () => {
+    setFilters(prev => ({
+      ...prev,
+      userId: searchTerm,
+      page: 1
+    }));
+  };
+
+  const handleProcessDeposit = async (depositId: string, action: 'approve' | 'reject', notes?: string) => {
+    try {
+      setProcessing(depositId);
+      
+      await adminApiService.updateTransaction(depositId, {
+        status: action === 'approve' ? 'COMPLETED' : 'FAILED',
+        notes
+      });
+
+      toast.success(`Deposit ${action}d successfully`);
+      fetchDeposits();
+    } catch (error) {
+      console.error('Error processing deposit:', error);
+      toast.error(`Failed to ${action} deposit`);
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const handleBulkProcess = async (action: 'approve' | 'reject') => {
+    if (selectedDeposits.length === 0) {
+      toast.error('Please select deposits to process');
+      return;
     }
 
-    // Status filter
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(deposit => deposit.status === statusFilter);
-    }
-
-    // Method filter
-    if (methodFilter !== 'all') {
-      filtered = filtered.filter(deposit => deposit.payment_method === methodFilter);
-    }
-
-    setFilteredDeposits(filtered);
-  };
-
-  const calculateStats = () => {
-    const total = deposits.length;
-    const pending = deposits.filter(d => d.status === 'pending').length;
-    const approved = deposits.filter(d => d.status === 'approved').length;
-    const rejected = deposits.filter(d => d.status === 'rejected').length;
-    const totalAmount = deposits
-      .filter(d => d.status === 'approved')
-      .reduce((sum, d) => sum + d.amount, 0);
-
-    setStats({ total, pending, approved, rejected, totalAmount });
-  };
-
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
-  };
-
-  const handleStatusFilter = (status: string) => {
-    setStatusFilter(status);
-  };
-
-  const handleMethodFilter = (method: string) => {
-    setMethodFilter(method);
-  };
-
-  const handleSelectDeposit = (depositId: number) => {
-    setSelectedDeposits(prev => 
-      prev.includes(depositId) 
-        ? prev.filter(id => id !== depositId)
-        : [...prev, depositId]
-    );
-  };
-
-  const handleSelectAll = () => {
-    if (selectedDeposits.length === filteredDeposits.length) {
+    try {
+      setProcessing('bulk');
+      
+      await adminApiService.bulkActionUsers(selectedDeposits, action);
+      
+      toast.success(`${selectedDeposits.length} deposits ${action}d successfully`);
       setSelectedDeposits([]);
-    } else {
-      setSelectedDeposits(filteredDeposits.map(deposit => deposit.id));
-    }
-  };
-
-  const handleBulkAction = async (action: string) => {
-    if (selectedDeposits.length === 0) return;
-
-    try {
-      switch (action) {
-        case 'approve':
-          await Promise.all(selectedDeposits.map(id => api.payment.approveDeposit(id)));
-          break;
-        case 'reject':
-          await Promise.all(selectedDeposits.map(id => api.payment.rejectDeposit(id)));
-          break;
-      }
-      fetchDeposits();
-      setSelectedDeposits([]);
-    } catch (error) {
-      console.error('Bulk action failed:', error);
-    }
-  };
-
-  const handleApproveDeposit = async (depositId: number) => {
-    try {
-      await api.payment.approveDeposit(depositId);
       fetchDeposits();
     } catch (error) {
-      console.error('Failed to approve deposit:', error);
+      console.error('Error bulk processing deposits:', error);
+      toast.error(`Failed to ${action} deposits`);
+    } finally {
+      setProcessing(null);
     }
   };
 
-  const handleRejectDeposit = async (depositId: number) => {
-    try {
-      await api.payment.rejectDeposit(depositId);
-      fetchDeposits();
-    } catch (error) {
-      console.error('Failed to reject deposit:', error);
-    }
-  };
-
-  const handleExport = () => {
-    const csvContent = [
-      ['ID', 'Username', 'Email', 'Amount', 'Currency', 'Method', 'Status', 'Date'],
-      ...filteredDeposits.map(deposit => [
-        deposit.id,
-        deposit.username,
-        deposit.email,
-        deposit.amount.toString(),
-        deposit.currency,
-        deposit.payment_method,
-        deposit.status,
-        deposit.created_at
-      ])
-    ].map(row => row.join(',')).join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'deposits.csv';
-    a.click();
-    window.URL.revokeObjectURL(url);
+  const formatCurrency = (amount: number, currency: string = primaryCurrency) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency,
+      minimumFractionDigits: 2
+    }).format(amount);
   };
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return <Badge className="bg-green-100 text-green-800">Approved</Badge>;
-      case 'pending':
-        return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>;
-      case 'rejected':
-        return <Badge className="bg-red-100 text-red-800">Rejected</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
-    }
-  };
+    const statusConfig = {
+      PENDING: { color: 'bg-yellow-100 text-yellow-800', icon: Clock },
+      COMPLETED: { color: 'bg-green-100 text-green-800', icon: CheckCircle },
+      FAILED: { color: 'bg-red-100 text-red-800', icon: XCircle },
+      CANCELLED: { color: 'bg-gray-100 text-gray-800', icon: XCircle }
+    };
 
-  const getMethodIcon = (method: string) => {
-    switch (method.toLowerCase()) {
-      case 'bitcoin':
-      case 'btc':
-        return <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center text-white text-xs font-bold">₿</div>;
-      case 'ethereum':
-      case 'eth':
-        return <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">Ξ</div>;
-      case 'tron':
-      case 'trx':
-        return <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">T</div>;
-      default:
-        return <CreditCard className="h-6 w-6 text-gray-400" />;
-    }
-  };
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.PENDING;
+    const Icon = config.icon;
 
-  const paginatedDeposits = filteredDeposits.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
-  const totalPages = Math.ceil(filteredDeposits.length / itemsPerPage);
-
-  if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <span className="ml-2 text-gray-600">Loading deposits...</span>
-      </div>
+      <Badge className={config.color}>
+        <Icon className="h-3 w-3 mr-1" />
+        {status}
+      </Badge>
     );
-  }
+  };
+
+  const getGatewayBadge = (gateway: string) => {
+    const gatewayColors = {
+      COINPAYMENTS: 'bg-blue-100 text-blue-800',
+      NOWPAYMENTS: 'bg-purple-100 text-purple-800',
+      STRIPE: 'bg-indigo-100 text-indigo-800',
+      PAYPAL: 'bg-yellow-100 text-yellow-800',
+      BINANCE: 'bg-orange-100 text-orange-800',
+      CRYPTO: 'bg-green-100 text-green-800',
+      BANK_TRANSFER: 'bg-gray-100 text-gray-800'
+    };
+
+    return (
+      <Badge className={gatewayColors[gateway as keyof typeof gatewayColors] || 'bg-gray-100 text-gray-800'}>
+        {gateway.replace('_', ' ')}
+      </Badge>
+    );
+  };
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Deposits</h1>
-          <p className="text-gray-600">Manage member deposits and payments</p>
+          <h1 className="text-3xl font-bold text-gray-900">Deposits Management</h1>
+          <p className="text-gray-600 mt-1">Manage and process user deposits</p>
         </div>
-        <div className="flex space-x-2">
-          <Button variant="outline" onClick={handleExport}>
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-          <Button variant="outline" onClick={fetchDeposits}>
+        <div className="flex items-center space-x-2">
+          <Button onClick={fetchDeposits} variant="outline" size="sm">
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
+          <Button variant="outline" size="sm">
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
         </div>
-      </div>
-
-      {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <DollarSign className="h-8 w-8 text-blue-600" />
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-600">Total Deposits</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <Clock className="h-8 w-8 text-yellow-600" />
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-600">Pending</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.pending}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <CheckCircle className="h-8 w-8 text-green-600" />
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-600">Approved</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.approved}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <XCircle className="h-8 w-8 text-red-600" />
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-600">Rejected</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.rejected}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <TrendingUp className="h-8 w-8 text-green-600" />
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-600">Total Amount</p>
-                <p className="text-2xl font-bold text-gray-900">${stats.totalAmount.toFixed(2)}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Filters */}
       <Card>
-        <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search deposits..."
-                  value={searchTerm}
-                  onChange={handleSearch}
-                  className="pl-10"
-                />
-              </div>
-            </div>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Filter className="h-5 w-5 mr-2" />
+            Filters
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-              <select
-                value={statusFilter}
-                onChange={(e) => handleStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
-              </select>
+              <Select value={filters.status || ''} onValueChange={(value) => handleFilterChange('status', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Status</SelectItem>
+                  <SelectItem value="PENDING">Pending</SelectItem>
+                  <SelectItem value="COMPLETED">Completed</SelectItem>
+                  <SelectItem value="FAILED">Failed</SelectItem>
+                  <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
-              <select
-                value={methodFilter}
-                onChange={(e) => handleMethodFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Methods</option>
-                <option value="bitcoin">Bitcoin</option>
-                <option value="ethereum">Ethereum</option>
-                <option value="tron">Tron</option>
-                <option value="bank_transfer">Bank Transfer</option>
-              </select>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Gateway</label>
+              <Select value={filters.gateway || ''} onValueChange={(value) => handleFilterChange('gateway', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Gateways" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Gateways</SelectItem>
+                  <SelectItem value="COINPAYMENTS">CoinPayments</SelectItem>
+                  <SelectItem value="NOWPAYMENTS">NOWPayments</SelectItem>
+                  <SelectItem value="STRIPE">Stripe</SelectItem>
+                  <SelectItem value="PAYPAL">PayPal</SelectItem>
+                  <SelectItem value="BINANCE">Binance</SelectItem>
+                  <SelectItem value="CRYPTO">Crypto Direct</SelectItem>
+                  <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <div className="flex items-end">
-              <Button variant="outline" className="w-full">
-                <Filter className="h-4 w-4 mr-2" />
-                More Filters
-              </Button>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <Input
+                type="date"
+                value={filters.startDate || ''}
+                onChange={(e) => handleFilterChange('startDate', e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <Input
+                type="date"
+                value={filters.endDate || ''}
+                onChange={(e) => handleFilterChange('endDate', e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Search User</label>
+              <div className="flex">
+                <Input
+                  placeholder="Username or email"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                <Button onClick={handleSearch} variant="outline" className="ml-2">
+                  <Search className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -392,28 +305,28 @@ const Deposits: React.FC = () => {
       {/* Bulk Actions */}
       {selectedDeposits.length > 0 && (
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">
                 {selectedDeposits.length} deposit(s) selected
               </span>
-              <div className="flex space-x-2">
+              <div className="flex items-center space-x-2">
                 <Button
-                  size="sm"
-                  onClick={() => handleBulkAction('approve')}
+                  onClick={() => handleBulkProcess('approve')}
+                  disabled={processing === 'bulk'}
                   className="bg-green-600 hover:bg-green-700"
                 >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Approve All
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Approve Selected
                 </Button>
                 <Button
-                  size="sm"
+                  onClick={() => handleBulkProcess('reject')}
+                  disabled={processing === 'bulk'}
                   variant="outline"
-                  onClick={() => handleBulkAction('reject')}
-                  className="text-red-600 border-red-600 hover:bg-red-50"
+                  className="text-red-600 border-red-300 hover:bg-red-50"
                 >
                   <XCircle className="h-4 w-4 mr-2" />
-                  Reject All
+                  Reject Selected
                 </Button>
               </div>
             </div>
@@ -424,141 +337,157 @@ const Deposits: React.FC = () => {
       {/* Deposits Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Deposits ({filteredDeposits.length})</CardTitle>
+          <CardTitle className="flex items-center justify-between">
+            <span>Deposits ({pagination.total})</span>
+            <div className="text-sm text-gray-500">
+              Page {pagination.page} of {pagination.pages}
+            </div>
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4">
-                    <input
-                      type="checkbox"
-                      checked={selectedDeposits.length === filteredDeposits.length && filteredDeposits.length > 0}
-                      onChange={handleSelectAll}
-                      className="rounded border-gray-300"
-                    />
-                  </th>
-                  <th className="text-left py-3 px-4">User</th>
-                  <th className="text-left py-3 px-4">Amount</th>
-                  <th className="text-left py-3 px-4">Method</th>
-                  <th className="text-left py-3 px-4">Status</th>
-                  <th className="text-left py-3 px-4">Date</th>
-                  <th className="text-left py-3 px-4">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedDeposits.map((deposit) => (
-                  <tr key={deposit.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4">
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
+              <span className="ml-2 text-gray-600">Loading deposits...</span>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full table-auto">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left p-2">
                       <input
                         type="checkbox"
-                        checked={selectedDeposits.includes(deposit.id)}
-                        onChange={() => handleSelectDeposit(deposit.id)}
-                        className="rounded border-gray-300"
+                        checked={selectedDeposits.length === deposits.length && deposits.length > 0}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedDeposits(deposits.map(d => d.id));
+                          } else {
+                            setSelectedDeposits([]);
+                          }
+                        }}
                       />
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center">
-                        <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                          <User className="h-5 w-5 text-gray-600" />
-                        </div>
-                        <div className="ml-3">
-                          <div className="font-medium text-gray-900">{deposit.username}</div>
-                          <div className="text-sm text-gray-500">{deposit.email}</div>
-                          <div className="text-xs text-gray-400">ID: {deposit.transaction_id}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="font-medium text-lg">${deposit.amount.toFixed(2)}</div>
-                      <div className="text-sm text-gray-500">{deposit.currency}</div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center">
-                        {getMethodIcon(deposit.payment_method)}
-                        <span className="ml-2 text-sm">{deposit.payment_method}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      {getStatusBadge(deposit.status)}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="text-sm text-gray-500">
-                        {new Date(deposit.created_at).toLocaleDateString()}
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        {new Date(deposit.created_at).toLocaleTimeString()}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex space-x-2">
-                        <Button size="sm" variant="outline">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        {deposit.status === 'pending' && (
-                          <>
-                            <Button
-                              size="sm"
-                              onClick={() => handleApproveDeposit(deposit.id)}
-                              className="bg-green-600 hover:bg-green-700 text-white"
-                            >
-                              <CheckCircle className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleRejectDeposit(deposit.id)}
-                              className="text-red-600 border-red-600 hover:bg-red-50"
-                            >
-                              <XCircle className="h-4 w-4" />
-                            </Button>
-                          </>
-                        )}
-                        <Button size="sm" variant="outline">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
+                    </th>
+                    <th className="text-left p-2">User</th>
+                    <th className="text-left p-2">Amount</th>
+                    <th className="text-left p-2">Gateway</th>
+                    <th className="text-left p-2">Status</th>
+                    <th className="text-left p-2">Date</th>
+                    <th className="text-left p-2">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {deposits.map((deposit) => (
+                    <tr key={deposit.id} className="border-b hover:bg-gray-50">
+                      <td className="p-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedDeposits.includes(deposit.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedDeposits(prev => [...prev, deposit.id]);
+                            } else {
+                              setSelectedDeposits(prev => prev.filter(id => id !== deposit.id));
+                            }
+                          }}
+                        />
+                      </td>
+                      <td className="p-2">
+                        <div>
+                          <div className="font-medium">{deposit.user.username}</div>
+                          <div className="text-sm text-gray-500">{deposit.user.email}</div>
+                        </div>
+                      </td>
+                      <td className="p-2">
+                        <div className="flex items-center">
+                          <DollarSign className="h-4 w-4 text-green-600 mr-1" />
+                          <span className="font-medium">{formatCurrency(deposit.amount, deposit.currency)}</span>
+                        </div>
+                      </td>
+                      <td className="p-2">
+                        {getGatewayBadge(deposit.paymentGateway)}
+                      </td>
+                      <td className="p-2">
+                        {getStatusBadge(deposit.status)}
+                      </td>
+                      <td className="p-2">
+                        <div className="flex items-center text-sm text-gray-600">
+                          <Calendar className="h-4 w-4 mr-1" />
+                          {new Date(deposit.createdAt).toLocaleDateString()}
+                        </div>
+                      </td>
+                      <td className="p-2">
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {/* View details */}}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {deposit.status === 'PENDING' && (
+                            <>
+                              <Button
+                                size="sm"
+                                onClick={() => handleProcessDeposit(deposit.id, 'approve')}
+                                disabled={processing === deposit.id}
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                              >
+                                <CheckCircle className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => handleProcessDeposit(deposit.id, 'reject')}
+                                disabled={processing === deposit.id}
+                                variant="outline"
+                                className="text-red-600 border-red-300 hover:bg-red-50"
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-6">
-              <div className="text-sm text-gray-500">
-                Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredDeposits.length)} of {filteredDeposits.length} results
-              </div>
-              <div className="flex space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-                <span className="px-3 py-2 text-sm text-gray-600">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </Button>
-              </div>
+              {deposits.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  <AlertCircle className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                  <p>No deposits found</p>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Pagination */}
+      {pagination.pages > 1 && (
+        <div className="flex items-center justify-center space-x-2">
+          <Button
+            variant="outline"
+            onClick={() => handleFilterChange('page', pagination.page - 1)}
+            disabled={pagination.page === 1}
+          >
+            Previous
+          </Button>
+          <span className="text-sm text-gray-600">
+            Page {pagination.page} of {pagination.pages}
+          </span>
+          <Button
+            variant="outline"
+            onClick={() => handleFilterChange('page', pagination.page + 1)}
+            disabled={pagination.page === pagination.pages}
+          >
+            Next
+          </Button>
+        </div>
+      )}
     </div>
   );
 };
 
-export default Deposits; 
+export default DepositsManagement;
