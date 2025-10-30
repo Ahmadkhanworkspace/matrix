@@ -1,6 +1,7 @@
 import { prisma } from '../config/database';
 import { logger } from '../utils/logger';
-import { io } from '../server';
+import server from '../server';
+const io = server.getIO();
 
 interface NotificationFilters {
   page: number;
@@ -262,7 +263,7 @@ export class NotificationService {
 
       // Send real-time notifications via Socket.IO
       targetUsers.forEach(user => {
-        io.to(`user_${user.id}`).emit('notification', {
+        io.to(`user-${user.id}`).emit('notification', {
           id: notification.id,
           title: notification.title,
           message: notification.message,

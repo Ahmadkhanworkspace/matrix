@@ -403,3 +403,53 @@ export class ValidationMiddleware {
     };
   }
 } 
+
+// Lightweight pass-through validators to satisfy route typings until full schemas are added
+export const validateRequest = () => (req: Request, res: Response, next: NextFunction) => next();
+
+// Content validators
+// Banners
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(ValidationMiddleware as any).validateBanner = () => (req: Request, res: Response, next: NextFunction) => next();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(ValidationMiddleware as any).validateBannerUpdate = () => (req: Request, res: Response, next: NextFunction) => next();
+
+// Email templates
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(ValidationMiddleware as any).validateEmailTemplate = () => (req: Request, res: Response, next: NextFunction) => next();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(ValidationMiddleware as any).validateEmailTemplateUpdate = () => (req: Request, res: Response, next: NextFunction) => next();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(ValidationMiddleware as any).validateEmailSend = () => (req: Request, res: Response, next: NextFunction) => next();
+
+// Promotional Content
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(ValidationMiddleware as any).validatePromotionalContent = () => (req: Request, res: Response, next: NextFunction) => next();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(ValidationMiddleware as any).validatePromotionalContentUpdate = () => (req: Request, res: Response, next: NextFunction) => next();
+
+// Notifications
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(ValidationMiddleware as any).validateNotification = () => (req: Request, res: Response, next: NextFunction) => next();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(ValidationMiddleware as any).validateNotificationUpdate = () => (req: Request, res: Response, next: NextFunction) => next();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(ValidationMiddleware as any).validateNotificationSend = () => (req: Request, res: Response, next: NextFunction) => next();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(ValidationMiddleware as any).validateNotificationSchedule = () => (req: Request, res: Response, next: NextFunction) => next();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(ValidationMiddleware as any).validateSystemNotification = () => (req: Request, res: Response, next: NextFunction) => next();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(ValidationMiddleware as any).validateMarkAsRead = () => (req: Request, res: Response, next: NextFunction) => next();
+
+// Transactions
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(ValidationMiddleware as any).validateTransactionUpdate = () => (req: Request, res: Response, next: NextFunction) => next();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(ValidationMiddleware as any).validateBulkProcess = () => (req: Request, res: Response, next: NextFunction) => next();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(ValidationMiddleware as any).validateDepositProcess = () => (req: Request, res: Response, next: NextFunction) => next();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(ValidationMiddleware as any).validateWithdrawalProcess = () => (req: Request, res: Response, next: NextFunction) => next();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(ValidationMiddleware as any).validateEWalletTransaction = () => (req: Request, res: Response, next: NextFunction) => next();

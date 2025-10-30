@@ -1,6 +1,6 @@
 import { prisma } from '../config/database';
 import { logger } from '../utils/logger';
-import { nodemailer } from 'nodemailer';
+import nodemailer from 'nodemailer';
 
 interface BannerFilters {
   page: number;
@@ -337,8 +337,8 @@ export class ContentService {
         content = content.replace(regex, variables[key]);
       });
 
-      // Create transporter (you'll need to configure this based on your email service)
-      const transporter = nodemailer.createTransporter({
+      // Create transporter (configure based on your email service)
+      const transporter = nodemailer.createTransport({
         // Configure your email service here
         host: process.env.SMTP_HOST,
         port: parseInt(process.env.SMTP_PORT || '587'),
