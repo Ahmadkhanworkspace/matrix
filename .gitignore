@@ -87,7 +87,12 @@ dist
 
 # Gatsby files
 .cache/
+# Keep CRA/Vite public folders inside subprojects
 public
+!admin-panel/public/
+!admin-panel/public/**
+!user-panel/public/
+!user-panel/public/**
 
 # Storybook build outputs
 .out
