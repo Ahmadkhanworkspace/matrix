@@ -154,7 +154,7 @@ export class TransactionService {
       return await prisma.transaction.update({
         where: { id },
         data: {
-          status: status as TransactionStatus,
+          status: status as any,
           metadata: notes ? { notes } : undefined
         },
         include: {
@@ -562,13 +562,13 @@ export class TransactionService {
       const transaction = await prisma.transaction.create({
         data: {
           userId,
-          type: type as TransactionType,
+          type: type as any,
           amount,
           currency,
           description,
           referenceId,
           referenceType: 'admin',
-          status: TransactionStatus.COMPLETED,
+          status: 'COMPLETED' as any,
           balance: amount
         },
         include: {
