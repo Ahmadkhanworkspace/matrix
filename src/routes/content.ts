@@ -13,11 +13,11 @@ router.use(verifyAdmin);
 router.get('/banners', contentController.getBanners);
 router.get('/banners/:id', contentController.getBanner);
 router.post('/banners', 
-  ValidationMiddleware.validateBanner(),
+  (ValidationMiddleware as any).validateBanner(),
   contentController.createBanner
 );
 router.put('/banners/:id', 
-  ValidationMiddleware.validateBannerUpdate(),
+  (ValidationMiddleware as any).validateBannerUpdate(),
   contentController.updateBanner
 );
 router.delete('/banners/:id', contentController.deleteBanner);
@@ -30,16 +30,16 @@ router.post('/banners/:id/click', contentController.trackBannerClick);
 router.get('/email-templates', contentController.getEmailTemplates);
 router.get('/email-templates/:id', contentController.getEmailTemplate);
 router.post('/email-templates', 
-  ValidationMiddleware.validateEmailTemplate(),
+  (ValidationMiddleware as any).validateEmailTemplate(),
   contentController.createEmailTemplate
 );
 router.put('/email-templates/:id', 
-  ValidationMiddleware.validateEmailTemplateUpdate(),
+  (ValidationMiddleware as any).validateEmailTemplateUpdate(),
   contentController.updateEmailTemplate
 );
 router.delete('/email-templates/:id', contentController.deleteEmailTemplate);
 router.post('/email-templates/:id/send', 
-  ValidationMiddleware.validateEmailSend(),
+  (ValidationMiddleware as any).validateEmailSend(),
   contentController.sendEmail
 );
 
@@ -47,11 +47,11 @@ router.post('/email-templates/:id/send',
 router.get('/promotional-content', contentController.getPromotionalContent);
 router.get('/promotional-content/:id', contentController.getPromotionalContentById);
 router.post('/promotional-content', 
-  ValidationMiddleware.validatePromotionalContent(),
+  (ValidationMiddleware as any).validatePromotionalContent(),
   contentController.createPromotionalContent
 );
 router.put('/promotional-content/:id', 
-  ValidationMiddleware.validatePromotionalContentUpdate(),
+  (ValidationMiddleware as any).validatePromotionalContentUpdate(),
   contentController.updatePromotionalContent
 );
 router.delete('/promotional-content/:id', contentController.deletePromotionalContent);

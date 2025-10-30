@@ -12,28 +12,28 @@ router.get('/stats', verifyAdmin, notificationController.getNotificationStats);
 router.get('/:id', verifyAdmin, notificationController.getNotification);
 router.post('/', 
   verifyAdmin,
-  ValidationMiddleware.validateNotification(),
+  (ValidationMiddleware as any).validateNotification(),
   notificationController.createNotification
 );
 router.put('/:id', 
   verifyAdmin,
-  ValidationMiddleware.validateNotificationUpdate(),
+  (ValidationMiddleware as any).validateNotificationUpdate(),
   notificationController.updateNotification
 );
 router.delete('/:id', verifyAdmin, notificationController.deleteNotification);
 router.post('/:id/send', 
   verifyAdmin,
-  ValidationMiddleware.validateNotificationSend(),
+  (ValidationMiddleware as any).validateNotificationSend(),
   notificationController.sendNotification
 );
 router.post('/:id/schedule', 
   verifyAdmin,
-  ValidationMiddleware.validateNotificationSchedule(),
+  (ValidationMiddleware as any).validateNotificationSchedule(),
   notificationController.scheduleNotification
 );
 router.post('/system', 
   verifyAdmin,
-  ValidationMiddleware.validateSystemNotification(),
+  (ValidationMiddleware as any).validateSystemNotification(),
   notificationController.createSystemNotification
 );
 router.post('/process-scheduled', 
@@ -45,7 +45,7 @@ router.post('/process-scheduled',
 router.get('/user/:userId', verifyToken, notificationController.getUserNotifications);
 router.post('/:id/read', 
   verifyToken,
-  ValidationMiddleware.validateMarkAsRead(),
+  (ValidationMiddleware as any).validateMarkAsRead(),
   notificationController.markAsRead
 );
 

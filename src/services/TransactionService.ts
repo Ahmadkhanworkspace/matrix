@@ -1,6 +1,5 @@
 import { prisma } from '../config/database';
 import { logger } from '../utils/logger';
-import { TransactionType, TransactionStatus, PaymentStatus, WithdrawalStatus } from '@prisma/client';
 
 interface TransactionFilters {
   page: number;
@@ -54,11 +53,11 @@ export class TransactionService {
       const where: any = {};
 
       if (type) {
-        where.type = type as TransactionType;
+        where.type = type as any;
       }
 
       if (status) {
-        where.status = status as TransactionStatus;
+        where.status = status as any;
       }
 
       if (userId) {
@@ -187,7 +186,7 @@ export class TransactionService {
       const where: any = {};
 
       if (status) {
-        where.status = status as PaymentStatus;
+        where.status = status as any;
       }
 
       if (gateway) {
@@ -258,14 +257,14 @@ export class TransactionService {
         throw new Error('Payment not found');
       }
 
-      let newStatus: PaymentStatus;
+      let newStatus: any;
       let userBalanceUpdate = 0;
 
       if (action === 'approve') {
-        newStatus = PaymentStatus.COMPLETED;
+        newStatus = 'COMPLETED';
         userBalanceUpdate = payment.amount;
       } else if (action === 'reject') {
-        newStatus = PaymentStatus.FAILED;
+        newStatus = 'FAILED';
       } else {
         throw new Error('Invalid action');
       }
@@ -294,13 +293,13 @@ export class TransactionService {
         await prisma.transaction.create({
           data: {
             userId: payment.userId,
-            type: TransactionType.DEPOSIT,
+            type: 'DEPOSIT' as any,
             amount: payment.amount,
             currency: payment.currency,
             description: `Deposit approved - ${payment.description}`,
             referenceId: payment.id,
             referenceType: 'payment',
-            status: TransactionStatus.COMPLETED,
+            status: 'COMPLETED' as any,
             balance: userBalanceUpdate,
             paymentId: payment.id
           }
@@ -325,7 +324,7 @@ export class TransactionService {
       const where: any = {};
 
       if (status) {
-        where.status = status as WithdrawalStatus;
+        where.status = status as any;
       }
 
       if (userId) {
@@ -391,14 +390,14 @@ export class TransactionService {
         throw new Error('Withdrawal not found');
       }
 
-      let newStatus: WithdrawalStatus;
+      let newStatus: any;
 
       if (action === 'approve') {
-        newStatus = WithdrawalStatus.APPROVED;
+        newStatus = 'APPROVED';
       } else if (action === 'reject') {
-        newStatus = WithdrawalStatus.CANCELLED;
+        newStatus = 'CANCELLED';
       } else if (action === 'complete') {
-        newStatus = WithdrawalStatus.COMPLETED;
+        newStatus = 'COMPLETED';
       } else {
         throw new Error('Invalid action');
       }
@@ -427,13 +426,13 @@ export class TransactionService {
         await prisma.transaction.create({
           data: {
             userId: withdrawal.userId,
-            type: TransactionType.WITHDRAWAL,
+            type: 'WITHDRAWAL' as any,
             amount: withdrawal.amount,
             currency: withdrawal.currency,
             description: `Withdrawal rejected - refunded`,
             referenceId: withdrawal.id,
             referenceType: 'withdrawal',
-            status: TransactionStatus.COMPLETED,
+            status: 'COMPLETED' as any,
             balance: withdrawal.amount,
             withdrawalId: withdrawal.id
           }
@@ -454,13 +453,13 @@ export class TransactionService {
         await prisma.transaction.create({
           data: {
             userId: withdrawal.userId,
-            type: TransactionType.WITHDRAWAL,
+            type: 'WITHDRAWAL' as any,
             amount: -withdrawal.netAmount,
             currency: withdrawal.currency,
             description: `Withdrawal completed - ${withdrawal.walletAddress}`,
             referenceId: withdrawal.id,
             referenceType: 'withdrawal',
-            status: TransactionStatus.COMPLETED,
+            status: 'COMPLETED' as any,
             balance: -withdrawal.netAmount,
             withdrawalId: withdrawal.id
           }
@@ -485,7 +484,7 @@ export class TransactionService {
       const where: any = {};
 
       if (type) {
-        where.type = type as TransactionType;
+        where.type = type as any;
       }
 
       if (userId) {
@@ -642,45 +641,45 @@ export class TransactionService {
         prisma.payment.count({
           where: { 
             createdAt: { gte: startDate },
-            status: PaymentStatus.COMPLETED
+            status: 'COMPLETED' as any
           }
         }),
         prisma.withdrawal.count({
           where: { 
             createdAt: { gte: startDate },
-            status: WithdrawalStatus.COMPLETED
+            status: 'COMPLETED' as any
           }
         }),
         prisma.payment.count({
           where: { 
             createdAt: { gte: startDate },
-            status: PaymentStatus.PENDING
+            status: 'PENDING' as any
           }
         }),
         prisma.withdrawal.count({
           where: { 
             createdAt: { gte: startDate },
-            status: WithdrawalStatus.PENDING
+            status: 'PENDING' as any
           }
         }),
         prisma.payment.aggregate({
           where: { 
             createdAt: { gte: startDate },
-            status: PaymentStatus.COMPLETED
+            status: 'COMPLETED' as any
           },
           _sum: { amount: true }
         }),
         prisma.withdrawal.aggregate({
           where: { 
             createdAt: { gte: startDate },
-            status: WithdrawalStatus.COMPLETED
+            status: 'COMPLETED' as any
           },
           _sum: { netAmount: true }
         }),
         prisma.transaction.aggregate({
           where: { 
             createdAt: { gte: startDate },
-            status: TransactionStatus.COMPLETED
+            status: 'COMPLETED' as any
           },
           _sum: { amount: true }
         })

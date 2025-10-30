@@ -14,32 +14,32 @@ router.get('/', transactionController.getTransactions);
 router.get('/stats', transactionController.getTransactionStats);
 router.get('/:id', transactionController.getTransaction);
 router.put('/:id', 
-  ValidationMiddleware.validateTransactionUpdate(),
+  (ValidationMiddleware as any).validateTransactionUpdate(),
   transactionController.updateTransaction
 );
 router.post('/bulk-process', 
-  ValidationMiddleware.validateBulkProcess(),
+  (ValidationMiddleware as any).validateBulkProcess(),
   transactionController.bulkProcessTransactions
 );
 
 // Deposit routes
 router.get('/deposits/list', transactionController.getDeposits);
 router.put('/deposits/:id/process', 
-  ValidationMiddleware.validateDepositProcess(),
+  (ValidationMiddleware as any).validateDepositProcess(),
   transactionController.processDeposit
 );
 
 // Withdrawal routes
 router.get('/withdrawals/list', transactionController.getWithdrawals);
 router.put('/withdrawals/:id/process', 
-  ValidationMiddleware.validateWithdrawalProcess(),
+  (ValidationMiddleware as any).validateWithdrawalProcess(),
   transactionController.processWithdrawal
 );
 
 // eWallet routes
 router.get('/ewallet/list', transactionController.getEWalletTransactions);
 router.post('/ewallet/create', 
-  ValidationMiddleware.validateEWalletTransaction(),
+  (ValidationMiddleware as any).validateEWalletTransaction(),
   transactionController.createEWalletTransaction
 );
 
