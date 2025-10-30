@@ -108,8 +108,28 @@ class MatrixServer {
   }
 
   private initializeRoutes(): void {
+    // Root route
+    this.app.get('/', (req, res) => {
+      res.status(200).json({
+        status: 'OK',
+        message: 'Matrix MLM Backend API',
+        health: '/health',
+        apiBase: '/api'
+      });
+    });
+
     // Health check route
     this.app.get('/health', (req, res) => {
+      res.status(200).json({
+        status: 'OK',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        environment: process.env.NODE_ENV
+      });
+    });
+
+    // Alias for health under /api
+    this.app.get('/api/health', (req, res) => {
       res.status(200).json({
         status: 'OK',
         timestamp: new Date().toISOString(),
