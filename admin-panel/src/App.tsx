@@ -34,40 +34,84 @@ import PendingTransactions from './pages/Positions/PendingTransactions';
 // Financial Pages
 import WithdrawalsList from './pages/Transactions/WithdrawalsList';
 import DepositsList from './pages/Transactions/DepositsList';
+import Deposits from './pages/Financial/Deposits';
+import Withdrawals from './pages/Financial/Withdrawals';
+import EWalletTransactions from './pages/Financial/EWalletTransactions';
+import AddEWalletTransaction from './pages/Financial/AddEWalletTransaction';
 import BonusSystemManager from './pages/Financial/BonusSystemManager';
 import FastStartBonusManager from './pages/Financial/FastStartBonusManager';
+import CommissionCalculator from './pages/Financial/CommissionCalculator';
 
 // Matrix Pages
 import MatrixOverview from './pages/Matrix/MatrixOverview';
 import MatrixPositions from './pages/Matrix/MatrixPositions';
 import MatrixLevels from './pages/Matrix/MatrixLevels';
 import MatrixPositionManager from './pages/Matrix/MatrixPositionManager';
+import MatrixCycles from './pages/Matrix/MatrixCycles';
+import MatrixCycleManager from './pages/Matrix/MatrixCycleManager';
+import SpilloverManager from './pages/Matrix/SpilloverManager';
 
 // Communication Pages
 import NotificationManager from './pages/Communication/NotificationManager';
 import MessagingSystem from './pages/Communication/MessagingSystem';
 import AnnouncementManager from './pages/Communication/AnnouncementManager';
+import EmailUsers from './pages/Members/EmailUsers';
+import GlobalPIFLogs from './pages/Members/GlobalPIFLogs';
+import MessageHistory from './pages/Members/MessageHistory';
 
 // Content Pages
 import PromotionalContentManager from './pages/Content/PromotionalContentManager';
 import EmailTemplateManager from './pages/Content/EmailTemplateManager';
 import BannerManager from './pages/Content/BannerManager';
 
+// Banner Ads Pages
+import AddBanner from './pages/BannerAds/AddBanner';
+import ApprovedBanners from './pages/BannerAds/ApprovedBanners';
+import PendingBanners from './pages/BannerAds/PendingBanners';
+import AddTextAd from './pages/BannerAds/AddTextAd';
+import ApprovedTextAds from './pages/BannerAds/ApprovedTextAds';
+import PendingTextAds from './pages/BannerAds/PendingTextAds';
+
 // Analytics Pages
 import ReportingSystem from './pages/Analytics/ReportingSystem';
+import AnalyticsDashboard from './pages/Analytics/AnalyticsDashboard';
+import DataVisualization from './pages/Analytics/DataVisualization';
 
 // Tools Pages
 import DatabaseBackup from './pages/Settings/DatabaseBackup';
 import FileManager from './pages/Settings/FileManager';
+import SystemTools from './pages/Tools/SystemTools';
+import MarketingTools from './pages/Tools/MarketingTools';
+import ContestsManager from './pages/Tools/ContestsManager';
+import Contests from './pages/Tools/Contests';
+import DigitalProducts from './pages/Tools/DigitalProducts';
+import EmailValidation from './pages/Tools/EmailValidation';
+import FeedbackSurveys from './pages/Tools/FeedbackSurveys';
+import ListManagement from './pages/Tools/ListManagement';
+import MobileApp from './pages/Tools/MobileApp';
+import PushNotifications from './pages/Tools/PushNotifications';
+import PromotionalBanners from './pages/Settings/PromotionalBanners';
+import PromotionalLeadPages from './pages/Settings/PromotionalLeadPages';
+import PromotionalSoloAds from './pages/Settings/PromotionalSoloAds';
+import PromotionalSplashPages from './pages/Settings/PromotionalSplashPages';
+import SystemUpdate from './pages/Settings/SystemUpdate';
+import TestimonialsApproved from './pages/Settings/TestimonialsApproved';
+import TestimonialsPending from './pages/Settings/TestimonialsPending';
+import ResetCronTasks from './pages/ResetCronTasks';
+import Instructions from './pages/Instructions';
+import ProgressiveWebApp from './pages/ProgressiveWebApp';
+import TrainingVideo from './pages/TrainingVideo';
 
 // Modules Pages
 import ModulesManager from './pages/Modules/ModulesManager';
+import ModuleStore from './pages/Modules/ModuleStore';
 
 // Other Pages
 import Users from './pages/Users';
 import PaymentGateways from './pages/PaymentGateways';
 import Currencies from './pages/Currencies';
 import Matrix from './pages/Matrix';
+import Payments from './pages/Payments';
 
 function App() {
   return (
@@ -118,6 +162,11 @@ function App() {
                   {/* Financial */}
                   <Route path="/financial/withdrawals" element={<WithdrawalsList />} />
                   <Route path="/financial/deposits" element={<DepositsList />} />
+                  <Route path="/financial/payments" element={<Payments />} />
+                  <Route path="/financial/pending-transactions" element={<PendingTransactions />} />
+                  <Route path="/financial/add-ewallet-transaction" element={<AddEWalletTransaction />} />
+                  <Route path="/financial/ewallet-transactions" element={<EWalletTransactions />} />
+                  <Route path="/financial/commission-calculator" element={<CommissionCalculator />} />
                   <Route path="/financial/bonus-system" element={<BonusSystemManager />} />
                   <Route path="/financial/fast-start-bonus" element={<FastStartBonusManager />} />
                   
@@ -125,9 +174,15 @@ function App() {
                   <Route path="/matrix/overview" element={<MatrixOverview />} />
                   <Route path="/matrix/positions" element={<MatrixPositions />} />
                   <Route path="/matrix/levels" element={<MatrixLevels />} />
+                  <Route path="/matrix/cycles" element={<MatrixCycles />} />
+                  <Route path="/matrix/spillover" element={<SpilloverManager />} />
                   <Route path="/matrix/position-manager" element={<MatrixPositionManager />} />
+                  <Route path="/matrix/cycle-manager" element={<MatrixCycleManager />} />
                   
                   {/* Communication */}
+                  <Route path="/communication/email-users" element={<EmailUsers />} />
+                  <Route path="/communication/global-pif-logs" element={<GlobalPIFLogs />} />
+                  <Route path="/communication/message-history" element={<MessageHistory />} />
                   <Route path="/communication/notification-manager" element={<NotificationManager />} />
                   <Route path="/communication/messaging-system" element={<MessagingSystem />} />
                   <Route path="/communication/announcement-manager" element={<AnnouncementManager />} />
@@ -137,15 +192,46 @@ function App() {
                   <Route path="/content/email-templates" element={<EmailTemplateManager />} />
                   <Route path="/content/banner-manager" element={<BannerManager />} />
                   
+                  {/* Banner Ads */}
+                  <Route path="/banner-ads/add-banner" element={<AddBanner />} />
+                  <Route path="/banner-ads/approved-banners" element={<ApprovedBanners />} />
+                  <Route path="/banner-ads/pending-banners" element={<PendingBanners />} />
+                  <Route path="/banner-ads/add-text-ad" element={<AddTextAd />} />
+                  <Route path="/banner-ads/approved-text-ads" element={<ApprovedTextAds />} />
+                  <Route path="/banner-ads/pending-text-ads" element={<PendingTextAds />} />
+                  
                   {/* Analytics */}
+                  <Route path="/analytics/dashboard" element={<AnalyticsDashboard />} />
                   <Route path="/analytics/reporting" element={<ReportingSystem />} />
+                  <Route path="/analytics/visualization" element={<DataVisualization />} />
                   
                   {/* Modules */}
                   <Route path="/modules/manager" element={<ModulesManager />} />
+                  <Route path="/modules/store" element={<ModuleStore />} />
                   
                   {/* Tools */}
                   <Route path="/tools/database-backup" element={<DatabaseBackup />} />
                   <Route path="/tools/file-manager" element={<FileManager />} />
+                  <Route path="/tools/system-tools" element={<SystemTools />} />
+                  <Route path="/tools/marketing-tools" element={<MarketingTools />} />
+                  <Route path="/tools/contests" element={<Contests />} />
+                  <Route path="/tools/digital-products" element={<DigitalProducts />} />
+                  <Route path="/tools/email-validation" element={<EmailValidation />} />
+                  <Route path="/tools/feedback-surveys" element={<FeedbackSurveys />} />
+                  <Route path="/tools/list-management" element={<ListManagement />} />
+                  <Route path="/tools/mobile-app" element={<MobileApp />} />
+                  <Route path="/tools/push-notifications" element={<PushNotifications />} />
+                  <Route path="/tools/promotional-banners" element={<PromotionalBanners />} />
+                  <Route path="/tools/promotional-lead-pages" element={<PromotionalLeadPages />} />
+                  <Route path="/tools/promotional-solo-ads" element={<PromotionalSoloAds />} />
+                  <Route path="/tools/promotional-splash-pages" element={<PromotionalSplashPages />} />
+                  <Route path="/tools/system-update" element={<SystemUpdate />} />
+                  <Route path="/tools/testimonials-approved" element={<TestimonialsApproved />} />
+                  <Route path="/tools/testimonials-pending" element={<TestimonialsPending />} />
+                  <Route path="/tools/instructions" element={<Instructions />} />
+                  <Route path="/tools/progressive-web-app" element={<ProgressiveWebApp />} />
+                  <Route path="/tools/reset-cron-tasks" element={<ResetCronTasks />} />
+                  <Route path="/tools/training-video" element={<TrainingVideo />} />
                   
                   {/* Other Pages */}
                   <Route path="/users" element={<Users />} />
