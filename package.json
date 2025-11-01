@@ -4,6 +4,7 @@
   "description": "Matrix MLM System Backend API",
   "main": "backend/src/server.js",
   "scripts": {
+    "postinstall": "cd backend && npm install --production",
     "start": "node backend/src/server.js",
     "dev": "nodemon -r tsconfig-paths/register src/server.ts",
     "build": "tsc",
