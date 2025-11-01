@@ -22,10 +22,11 @@ const Login: React.FC = () => {
       if (success) {
         navigate('/dashboard');
       } else {
-        setError('Invalid username or password');
+        setError('Invalid username or password. Check browser console (F12) for details.');
       }
-    } catch (error) {
-      setError('Login failed. Please try again.');
+    } catch (error: any) {
+      console.error('Login page error:', error);
+      setError(`Login failed: ${error.message || 'Please check your connection and try again.'}`);
     } finally {
       setLoading(false);
     }
