@@ -214,13 +214,16 @@ router.post('/login', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Login error:', error);
-    console.error('Login error stack:', error.stack);
+    const errorMessage = error?.message || error?.toString() || 'Unknown error';
+    const errorStack = error?.stack || '';
+    console.error('Login error:', errorMessage);
+    console.error('Login error full:', error);
+    console.error('Login error stack:', errorStack);
     res.status(500).json({
       success: false,
       error: 'Login failed',
-      message: error.message || 'Login failed',
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      message: errorMessage,
+      details: errorStack.substring(0, 500)
     });
   }
 });
