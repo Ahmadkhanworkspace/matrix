@@ -677,6 +677,7 @@ export class AdminController {
       const position = await prisma.matrixPosition.create({
         data: {
           userId,
+          username: (await prisma.user.findUnique({ where: { id: userId }, select: { username: true } }))?.username || '',
           matrixLevel,
           positionPath: `${sponsorId}.${userId}`,
           sponsorId,

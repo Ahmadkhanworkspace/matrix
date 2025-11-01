@@ -45,10 +45,14 @@ export class MatrixService {
         throw new Error(`No available position in matrix level ${matrixLevel}`);
       }
 
+      // Get username for the position
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
+      
       // Create matrix position
       const matrixPosition = await prisma.matrixPosition.create({
         data: {
           userId,
+          username: user?.username || '',
           matrixLevel,
           positionPath: position.path,
           sponsorId: position.sponsorId,
@@ -464,10 +468,14 @@ export class MatrixService {
         throw new Error(`Position ${positionPath} in level ${matrixLevel} is already occupied`);
       }
 
+      // Get username for the position
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
+      
       // Create matrix position
       const matrixPosition = await prisma.matrixPosition.create({
         data: {
           userId,
+          username: user?.username || '',
           matrixLevel,
           positionPath,
           status: 'ACTIVE'

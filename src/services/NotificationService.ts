@@ -94,14 +94,12 @@ export class NotificationService {
         where: { id },
         include: {
           userNotifications: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  username: true,
-                  email: true
-                }
-              }
+            select: {
+              id: true,
+              userId: true,
+              status: true,
+              sentAt: true,
+              readAt: true
             }
           }
         }
@@ -214,7 +212,7 @@ export class NotificationService {
         // Send to all users
         targetUsers = await prisma.user.findMany({
           where: {
-            status: 'active'
+            status: 'ACTIVE'
           }
         });
       } else {
@@ -243,7 +241,7 @@ export class NotificationService {
 
         targetUsers = await prisma.user.findMany({
           where: {
-            status: 'active',
+            status: 'ACTIVE',
             ...audienceConditions
           }
         });

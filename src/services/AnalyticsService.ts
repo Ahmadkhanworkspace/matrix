@@ -65,24 +65,24 @@ export class AnalyticsService {
         prisma.user.count({ where: dateFilter }),
         prisma.user.count({
           where: {
-            lastLoginAt: {
+            lastLogin: {
               gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
             }
           }
         }),
         prisma.user.count({
           where: {
-            membershipLevel: 'pro'
+            memberType: 'PRO'
           }
         }),
         prisma.user.count({
           where: {
-            leadershipLevel: { not: null }
+            userRanks: { some: {} }
           }
         }),
         prisma.user.count({
           where: {
-            status: 'inactive'
+            status: 'SUSPENDED'
           }
         }),
         prisma.user.count({
@@ -231,16 +231,16 @@ export class AnalyticsService {
           }
         }),
         prisma.matrixPosition.aggregate({
-          _avg: { level: true }
+          _avg: { level1: true }
         }),
         prisma.matrixPosition.count({
           where: {
-            status: 'completed'
+            status: 'COMPLETED'
           }
         }),
         prisma.matrixPosition.count({
           where: {
-            spillover: true
+            refBy: { not: null }
           }
         })
       ]);
@@ -253,7 +253,7 @@ export class AnalyticsService {
         totalPositions,
         filledPositions,
         completionRate: Math.round(completionRate * 100) / 100,
-        averageLevel: Math.round((averageLevel._avg.level || 0) * 100) / 100,
+        averageLevel: Math.round((averageLevel._avg.level1 || 0) * 100) / 100,
         cyclesCompleted,
         spilloverCount
       };
