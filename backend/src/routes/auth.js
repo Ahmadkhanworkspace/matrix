@@ -82,9 +82,13 @@ router.post('/login', async (req, res) => {
     let user;
     let isValidPassword = false;
     
-    if (USE_PRISMA && prisma()) {
+    if (USE_PRISMA) {
+      const prismaClient = prisma();
+      if (!prismaClient) {
+        throw new Error('Prisma client not initialized');
+      }
       // Use Prisma for Supabase/PostgreSQL
-      user = await prisma().user.findFirst({
+      user = await prismaClient.user.findFirst({
         where: {
           OR: [
             { username: username },
@@ -157,11 +161,14 @@ router.post('/login', async (req, res) => {
     }
 
     // Update last login
-    if (USE_PRISMA && prisma()) {
-      await prisma().user.update({
+    if (USE_PRISMA) {
+      const prismaClient = prisma();
+      if (prismaClient) {
+        await prismaClient.user.update({
         where: { id: user.id },
         data: { lastLogin: new Date() }
       });
+      }
     } else {
       await query(
         'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?',
@@ -209,7 +216,8 @@ router.post('/login', async (req, res) => {
     console.error('Login error:', error);
     res.status(500).json({
       success: false,
-      error: 'Login failed'
+      error: 'Login failed',
+      message: process.env.NODE_ENV === 'development' ? error.message : 'Login failed'
     });
   }
 });
