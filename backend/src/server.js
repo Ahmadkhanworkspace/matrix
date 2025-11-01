@@ -326,6 +326,18 @@ server.listen(PORT, async () => {
   console.log(`🔧 System Status: http://localhost:${PORT}/api/system/status`);
   console.log(`⚡ Socket.IO ready for real-time features`);
   
+  // Pre-initialize Prisma if needed
+  const USE_PRISMA = process.env.USE_PRISMA === 'true' || (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('supabase'));
+  if (USE_PRISMA) {
+    const { prisma } = require('./config/databaseHybrid');
+    const prismaClient = prisma();
+    if (prismaClient) {
+      console.log('✅ Prisma client pre-initialized');
+    } else {
+      console.error('❌ Failed to pre-initialize Prisma client');
+    }
+  }
+  
   // Initialize system after server starts
   await initializeSystem();
 });
