@@ -72,6 +72,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Use real API for authentication
       const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
       
+      console.log('🔍 Login attempt:', { 
+        API_URL, 
+        username, 
+        endpoint: `${API_URL}/auth/login` 
+      });
+      
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
@@ -80,7 +86,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         body: JSON.stringify({ username, password }),
       });
 
+      console.log('📡 Login response:', {
+        status: response.status,
+        ok: response.ok,
+        url: response.url
+      });
+
       const data = await response.json();
+      console.log('📦 Login data:', data);
 
       if (response.ok && data.success && data.data?.token) {
         // Store token and user data
@@ -111,13 +124,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           localStorage.setItem('userData', JSON.stringify(mappedUser));
         }
 
+        console.log('✅ Login successful!');
         return true;
       } else {
         // Invalid credentials or error
+        console.error('❌ Login failed:', {
+          success: data.success,
+          error: data.error,
+          message: data.message
+        });
         return false;
       }
-    } catch (error) {
-      console.error('Login failed:', error);
+    } catch (error: any) {
+      console.error('❌ Login error:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
       return false;
     }
   };
