@@ -2,9 +2,9 @@
   "name": "matrix-mlm-backend",
   "version": "1.0.0",
   "description": "Matrix MLM System Backend API",
-  "main": "simple-server.js",
+  "main": "backend/src/server.js",
   "scripts": {
-    "start": "node simple-server.js",
+    "start": "node backend/src/server.js",
     "dev": "nodemon -r tsconfig-paths/register src/server.ts",
     "build": "tsc",
     "test": "jest",
