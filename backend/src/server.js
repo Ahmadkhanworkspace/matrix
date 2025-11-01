@@ -166,7 +166,16 @@ app.use('/api/supabase', supabaseRoutes);
 app.get('/api/health', async (req, res) => {
   try {
     // Test database connection
-    await db.execute('SELECT 1');
+    const USE_PRISMA = process.env.USE_PRISMA === 'true' || (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('supabase'));
+    if (USE_PRISMA) {
+      const { prisma } = require('./config/databaseHybrid');
+      const prismaClient = prisma();
+      if (prismaClient) {
+        await prismaClient.$queryRaw`SELECT 1`;
+      }
+    } else {
+      await db.execute('SELECT 1');
+    }
     
     // Get system stats
     const stats = await CronService.getSystemStats();
