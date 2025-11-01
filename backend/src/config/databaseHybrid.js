@@ -70,18 +70,33 @@ const initPrisma = () => {
   try {
     if (!process.env.DATABASE_URL) {
       console.log('⚠️  DATABASE_URL not found. Prisma disabled.');
+      console.log('   Current env vars:', Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('PRISMA')).join(', '));
       return null;
     }
 
-    const { PrismaClient } = require('@prisma/client');
+    console.log('🔧 Attempting to initialize Prisma client...');
+    console.log('   DATABASE_URL exists:', !!process.env.DATABASE_URL);
+    
+    // Try to require Prisma client
+    let PrismaClient;
+    try {
+      PrismaClient = require('@prisma/client').PrismaClient;
+    } catch (requireError) {
+      console.error('❌ Cannot require @prisma/client:', requireError.message);
+      console.error('   This usually means Prisma client was not generated.');
+      console.error('   Run: npx prisma generate');
+      return null;
+    }
+
     prismaClient = new PrismaClient({
       log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
     });
 
-    console.log('✅ Prisma client initialized');
+    console.log('✅ Prisma client initialized successfully');
     return prismaClient;
   } catch (error) {
     console.error('❌ Error initializing Prisma:', error.message);
+    console.error('   Stack:', error.stack);
     return null;
   }
 };
