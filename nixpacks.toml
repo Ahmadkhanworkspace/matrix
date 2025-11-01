@@ -4,7 +4,8 @@ nixPkgs = ["nodejs-18_x"]
 [phases.install]
 cmds = [
   "npm ci",
-  "cd backend && npm ci --production"
+  "cd backend && npm ci --production",
+  "npx prisma generate"
 ]
 
 [phases.build]
