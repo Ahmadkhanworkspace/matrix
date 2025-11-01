@@ -1,7 +1,9 @@
-import io, { Socket } from 'socket.io-client';
+import io from 'socket.io-client';
+
+type SocketType = ReturnType<typeof io>;
 
 class RealtimeService {
-  private socket: Socket | null = null;
+  private socket: SocketType | null = null;
   private listeners: Map<string, Set<Function>> = new Map();
   private isConnected: boolean = false;
   private userId: string | null = null;
