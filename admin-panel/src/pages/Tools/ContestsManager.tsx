@@ -70,6 +70,7 @@ const ContestsManager: React.FC = () => {
   const [filterType, setFilterType] = useState('');
   const [contestType, setContestType] = useState('');
   const [contestStatus, setContestStatus] = useState('draft');
+  const [contestCurrency, setContestCurrency] = useState('');
 
   // Mock data - replace with actual API calls
   const [contests, setContests] = useState<Contest[]>([
@@ -328,6 +329,7 @@ const ContestsManager: React.FC = () => {
                   setShowModal(false);
                   setContestType('');
                   setContestStatus('draft');
+                  setContestCurrency('');
                 }}>
                   <X className="h-4 w-4" />
                 </Button>
@@ -454,7 +456,7 @@ const ContestsManager: React.FC = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Currency
                         </label>
-                        <Select defaultValue={primaryCurrency}>
+                        <Select value={contestCurrency || primaryCurrency} onValueChange={setContestCurrency}>
                           <SelectTrigger className="w-full">
                             <SelectValue />
                           </SelectTrigger>
@@ -543,6 +545,7 @@ const ContestsManager: React.FC = () => {
                   setShowModal(false);
                   setContestType('');
                   setContestStatus('draft');
+                  setContestCurrency('');
                 }}>
                   Cancel
                 </Button>
@@ -570,7 +573,7 @@ const ContestsManager: React.FC = () => {
                     endDate: (document.getElementById('end-date') as HTMLInputElement)?.value || new Date().toISOString(),
                     prize: (document.getElementById('prize-description') as HTMLInputElement)?.value || 'TBD',
                     prizeValue: parseFloat((document.getElementById('prize-value') as HTMLInputElement)?.value || '0'),
-                    currency: primaryCurrency,
+                    currency: contestCurrency || primaryCurrency,
                     participants: 0,
                     maxParticipants: parseInt((document.getElementById('max-participants') as HTMLInputElement)?.value || '0') || undefined,
                     rules: {},
@@ -584,6 +587,7 @@ const ContestsManager: React.FC = () => {
                   setShowModal(false);
                   setContestType('');
                   setContestStatus('draft');
+                  setContestCurrency('');
                 }}>
                   <Trophy className="h-4 w-4 mr-2" />
                   Create Contest

@@ -8,6 +8,7 @@ interface SelectProps {
 
 interface SelectTriggerProps {
   children: React.ReactNode;
+  className?: string;
 }
 
 interface SelectContentProps {
@@ -37,8 +38,8 @@ export const Select: React.FC<SelectProps> = ({ value, onValueChange, children }
   );
 };
 
-export const SelectTrigger: React.FC<SelectTriggerProps> = ({ children }) => {
-  return <>{children}</>;
+export const SelectTrigger: React.FC<SelectTriggerProps> = ({ children, className }) => {
+  return <div className={className}>{children}</div>;
 };
 
 export const SelectContent: React.FC<SelectContentProps> = ({ children }) => {
