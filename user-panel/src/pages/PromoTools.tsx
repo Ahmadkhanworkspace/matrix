@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
+import { formatCurrency as formatCurrencyUtil } from '../utils/currency';
 import { 
   Share2, 
   Link, 
@@ -161,12 +162,21 @@ const PromoTools: React.FC = () => {
       <Badge className="bg-gray-100 text-gray-800">Inactive</Badge>;
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2
-    }).format(amount);
+  const formatCurrency = (amount: number | string | null | undefined) => {
+    try {
+      if (amount === null || amount === undefined) {
+        return '0.00 USD';
+      }
+      const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+      if (isNaN(numAmount)) {
+        return '0.00 USD';
+      }
+      return formatCurrencyUtil(numAmount, 'USD');
+    } catch (error) {
+      console.error('Currency formatting error:', error);
+      const numAmount = typeof amount === 'string' ? parseFloat(amount) : (amount || 0);
+      return `${(numAmount || 0).toFixed(2)} USD`;
+    }
   };
 
   return (

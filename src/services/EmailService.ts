@@ -161,6 +161,41 @@ export class EmailService {
   }
 
   /**
+   * Send email with HTML or text format
+   */
+  async sendEmail(options: {
+    to: string;
+    subject: string;
+    html?: string;
+    text?: string;
+  }): Promise<void> {
+    try {
+      if (!options.html && !options.text) {
+        throw new Error('Either html or text must be provided');
+      }
+
+      const mailOptions: any = {
+        from: process.env.SMTP_FROM || 'noreply@matrixmlm.com',
+        to: options.to,
+        subject: options.subject
+      };
+
+      if (options.html) {
+        mailOptions.html = options.html;
+      }
+      if (options.text) {
+        mailOptions.text = options.text;
+      }
+
+      await this.transporter.sendMail(mailOptions);
+      logger.info(`Email sent to ${options.to}`);
+    } catch (error) {
+      logger.error('Error sending email:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Email templates
    */
   private getVerificationEmailTemplate(verificationUrl: string): string {

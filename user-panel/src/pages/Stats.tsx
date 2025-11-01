@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
+import { formatCurrency as formatCurrencyUtil } from '../utils/currency';
+import { apiService } from '../api/api';
 import { 
   TrendingUp, 
   Users, 
@@ -45,26 +47,27 @@ const Stats: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // TODO: Replace with actual API call
     const fetchStats = async () => {
       try {
-        // Simulated API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        setLoading(true);
+        const response = await apiService.getUserStats();
         
-        setStats({
-          totalEarnings: 12500.50,
-          totalWithdrawals: 8500.00,
-          availableBalance: 4000.50,
-          totalReferrals: 24,
-          activeReferrals: 18,
-          matrixPositions: 12,
-          completedCycles: 8,
-          pendingCycles: 4,
-          totalBonuses: 3200.00,
-          thisMonthEarnings: 2800.00,
-          lastMonthEarnings: 2200.00,
-          earningsGrowth: 27.27
-        });
+        if (response.success && response.data) {
+          setStats({
+            totalEarnings: response.data.totalEarnings || 0,
+            totalWithdrawals: response.data.totalWithdrawals || 0,
+            availableBalance: response.data.availableBalance || 0,
+            totalReferrals: response.data.totalReferrals || 0,
+            activeReferrals: response.data.activeReferrals || 0,
+            matrixPositions: response.data.matrixPositions || 0,
+            completedCycles: response.data.completedCycles || 0,
+            pendingCycles: response.data.pendingCycles || 0,
+            totalBonuses: response.data.totalBonuses || 0,
+            thisMonthEarnings: response.data.thisMonthEarnings || 0,
+            lastMonthEarnings: response.data.lastMonthEarnings || 0,
+            earningsGrowth: response.data.earningsGrowth || 0
+          });
+        }
       } catch (error) {
         console.error('Error fetching stats:', error);
       } finally {
@@ -75,12 +78,21 @@ const Stats: React.FC = () => {
     fetchStats();
   }, []);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2
-    }).format(amount);
+  const formatCurrency = (amount: number | string | null | undefined) => {
+    try {
+      if (amount === null || amount === undefined) {
+        return '0.00 USD';
+      }
+      const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+      if (isNaN(numAmount)) {
+        return '0.00 USD';
+      }
+      return formatCurrencyUtil(numAmount, 'USD');
+    } catch (error) {
+      console.error('Currency formatting error:', error);
+      const numAmount = typeof amount === 'string' ? parseFloat(amount) : (amount || 0);
+      return `${(numAmount || 0).toFixed(2)} USD`;
+    }
   };
 
   const formatPercentage = (value: number) => {

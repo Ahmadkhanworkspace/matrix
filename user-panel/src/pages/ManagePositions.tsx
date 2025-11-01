@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
+import { formatCurrency as formatCurrencyUtil } from '../utils/currency';
+import { apiService } from '../api/api';
 import {
   Grid,
   Users,
@@ -36,76 +38,41 @@ const ManagePositions: React.FC = () => {
   const [filter, setFilter] = useState<'all' | 'active' | 'pending' | 'completed'>('all');
 
   useEffect(() => {
-    // TODO: Replace with actual API call
     const fetchPositions = async () => {
       try {
-        // Simulated API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        setPositions([
-          {
-            id: '1',
-            matrixId: 1,
-            level: 1,
-            position: 1,
-            status: 'active',
-            purchaseDate: '2024-01-01',
-            earnings: 250,
-            sponsor: 'admin',
-            downline: 3,
-            maxDownline: 3,
-            progress: 100
-          },
-          {
-            id: '2',
-            matrixId: 1,
-            level: 2,
-            position: 2,
-            status: 'pending',
-            purchaseDate: '2024-01-05',
-            earnings: 0,
-            sponsor: 'john_doe',
-            downline: 1,
-            maxDownline: 9,
-            progress: 11
-          },
-          {
-            id: '3',
-            matrixId: 1,
-            level: 1,
-            position: 3,
-            status: 'completed',
-            purchaseDate: '2023-12-15',
-            completionDate: '2024-01-10',
-            earnings: 500,
-            sponsor: 'admin',
-            downline: 3,
-            maxDownline: 3,
-            progress: 100
-          },
-          {
-            id: '4',
-            matrixId: 2,
-            level: 1,
-            position: 1,
-            status: 'active',
-            purchaseDate: '2024-01-08',
-            earnings: 150,
-            sponsor: 'jane_smith',
-            downline: 2,
-            maxDownline: 3,
-            progress: 67
-          }
-        ]);
+        setLoading(true);
+        const statusFilter = filter === 'all' ? undefined : filter;
+        const response = await apiService.getMatrixPositions(statusFilter);
+        
+        if (response.success && response.data) {
+          const apiPositions: MatrixPosition[] = response.data.map((p: any) => ({
+            id: p.id.toString(),
+            matrixId: p.matrixId || p.level,
+            level: p.level,
+            position: p.position || 0,
+            status: p.status,
+            purchaseDate: p.purchaseDate || p.createdAt,
+            completionDate: p.completionDate,
+            earnings: typeof p.earnings === 'string' ? parseFloat(p.earnings) : (p.earnings || 0),
+            sponsor: p.sponsor,
+            downline: p.downline || 0,
+            maxDownline: p.maxDownline || 0,
+            progress: p.progress || 0
+          }));
+          setPositions(apiPositions);
+        } else {
+          setPositions([]);
+        }
       } catch (error) {
         console.error('Error fetching positions:', error);
+        setPositions([]);
       } finally {
         setLoading(false);
       }
     };
 
     fetchPositions();
-  }, []);
+  }, [filter]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -122,12 +89,21 @@ const ManagePositions: React.FC = () => {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2
-    }).format(amount);
+  const formatCurrency = (amount: number | string | null | undefined) => {
+    try {
+      if (amount === null || amount === undefined) {
+        return '0.00 USD';
+      }
+      const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+      if (isNaN(numAmount)) {
+        return '0.00 USD';
+      }
+      return formatCurrencyUtil(numAmount, 'USD');
+    } catch (error) {
+      console.error('Currency formatting error:', error);
+      const numAmount = typeof amount === 'string' ? parseFloat(amount) : (amount || 0);
+      return `${(numAmount || 0).toFixed(2)} USD`;
+    }
   };
 
   const filteredPositions = positions.filter(position => {

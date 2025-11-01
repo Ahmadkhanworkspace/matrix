@@ -53,6 +53,43 @@ export class AdminApiService {
     return this.request('/admin/payment-gateways/config');
   }
 
+  async getPaymentGateways() {
+    try {
+      const response = await this.request('/payments/gateways/status');
+      return response.data || {};
+    } catch {
+      // Fallback to mock data
+      return {
+        coinpayments: { enabled: false, isTestMode: true, configured: false },
+        nowpayments: { enabled: false, isTestMode: true, configured: false },
+        binance: { enabled: false, isTestMode: true, configured: false }
+      };
+    }
+  }
+
+  async updatePaymentGatewayConfig(gateway: string, config: any) {
+    return this.request('/admin/payment-gateways/config', {
+      method: 'POST',
+      body: JSON.stringify({ gateway, config }),
+    });
+  }
+
+  async savePaymentGatewayCredentials(gateway: string, credentials: {
+    apiKey?: string;
+    secretKey?: string;
+    privateKey?: string;
+    publicKey?: string;
+    merchantId?: string;
+    ipnSecret?: string;
+    isTestMode?: boolean;
+    enabled?: boolean;
+  }) {
+    return this.request('/admin/payment-gateways/credentials', {
+      method: 'POST',
+      body: JSON.stringify({ gateway, credentials }),
+    });
+  }
+
   async testPaymentGateway(gateway: string, config: any) {
     return this.request('/admin/test-payment-gateway', {
       method: 'POST',
@@ -237,6 +274,54 @@ export class AdminApiService {
     });
   }
 
+  // Content/Banner API
+  async getBanners(params: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    type?: string;
+  } = {}) {
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) {
+        queryParams.append(key, value.toString());
+      }
+    });
+    return this.request(`/admin/content/banners?${queryParams.toString()}`);
+  }
+
+  async createBanner(data: any) {
+    return this.request('/admin/content/banners', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateBanner(id: string, data: any) {
+    return this.request(`/admin/content/banners/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteBanner(id: string) {
+    return this.request(`/admin/content/banners/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async approveBanner(id: string) {
+    return this.request(`/admin/content/banners/${id}/approve`, {
+      method: 'POST',
+    });
+  }
+
+  async rejectBanner(id: string) {
+    return this.request(`/admin/content/banners/${id}/reject`, {
+      method: 'POST',
+    });
+  }
+
   // System Tools API
   async getSystemHealth() {
     return this.request('/admin/system/health');
@@ -330,6 +415,243 @@ export class AdminApiService {
 
   async testDatabaseConnection() {
     return this.request('/admin/system/test-db');
+  }
+
+  // Cron Job API
+  async getCronStatus() {
+    return this.request('/admin/cron/status');
+  }
+
+  async runCronManually() {
+    return this.request('/admin/cron/run', {
+      method: 'POST',
+    });
+  }
+
+  async unlockCron() {
+    return this.request('/admin/cron/unlock', {
+      method: 'POST',
+    });
+  }
+
+  // Verifier Queue API
+  async getVerifierQueue(params: {
+    page?: number;
+    limit?: number;
+    processed?: boolean;
+  } = {}) {
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) {
+        queryParams.append(key, value.toString());
+      }
+    });
+    return this.request(`/admin/verifier/queue?${queryParams.toString()}`);
+  }
+
+  async createVerifierEntry(data: {
+    username: string;
+    mid: number;
+    date?: string;
+    etype?: number;
+    sponsor?: string;
+  }) {
+    return this.request('/admin/verifier/entry', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteVerifierEntry(id: string) {
+    return this.request(`/admin/verifier/entry/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Modules API
+  async getModules(params: {
+    category?: string;
+    status?: string;
+    search?: string;
+  } = {}) {
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== 'all') {
+        queryParams.append(key, value.toString());
+      }
+    });
+    const queryString = queryParams.toString();
+    return this.request(`/admin/modules${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getModule(id: number) {
+    return this.request(`/admin/modules/${id}`);
+  }
+
+  async purchaseModule(moduleId: number) {
+    return this.request(`/admin/modules/${moduleId}/purchase`, {
+      method: 'POST',
+    });
+  }
+
+  async installModule(moduleId: number) {
+    return this.request(`/admin/modules/${moduleId}/install`, {
+      method: 'POST',
+    });
+  }
+
+  async uninstallModule(moduleId: number) {
+    return this.request(`/admin/modules/${moduleId}/uninstall`, {
+      method: 'POST',
+    });
+  }
+
+  async updateModuleStatus(moduleId: number, status: string) {
+    return this.request(`/admin/modules/${moduleId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  // ============ RANKS MANAGEMENT ============
+  async getRanks() {
+    return this.request('/ranks/admin/ranks');
+  }
+
+  async createRank(data: any) {
+    return this.request('/ranks/admin/ranks', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateRank(rankId: string, data: any) {
+    return this.request(`/ranks/admin/ranks/${rankId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteRank(rankId: string) {
+    return this.request(`/ranks/admin/ranks/${rankId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async assignRank(userId: string, rankId: string, reason?: string) {
+    return this.request('/ranks/admin/assign', {
+      method: 'POST',
+      body: JSON.stringify({ userId, rankId, reason }),
+    });
+  }
+
+  // ============ EMAIL CAMPAIGNS ============
+  async getEmailCampaigns() {
+    return this.request('/email-campaigns/campaigns');
+  }
+
+  async createEmailCampaign(data: any) {
+    return this.request('/email-campaigns/campaigns', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateEmailCampaign(campaignId: string, data: any) {
+    return this.request(`/email-campaigns/campaigns/${campaignId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async sendEmailCampaign(campaignId: string) {
+    return this.request(`/email-campaigns/campaigns/${campaignId}/send`, {
+      method: 'POST',
+    });
+  }
+
+  async getEmailCampaignStats(campaignId: string) {
+    return this.request(`/email-campaigns/campaigns/${campaignId}/stats`);
+  }
+
+  async getEmailCampaignAnalytics(campaignId: string) {
+    return this.request(`/email-campaigns/campaigns/${campaignId}/analytics`);
+  }
+
+  async createABTest(campaignId: string, variants: any[]) {
+    return this.request(`/email-campaigns/campaigns/${campaignId}/ab-test`, {
+      method: 'POST',
+      body: JSON.stringify({ variants }),
+    });
+  }
+
+  async getEmailTemplates() {
+    return this.request('/email-campaigns/templates');
+  }
+
+  async createEmailTemplate(data: any) {
+    return this.request('/email-campaigns/templates', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ============ GAMIFICATION MANAGEMENT ============
+  async getAchievements() {
+    return this.request('/gamification/achievements');
+  }
+
+  async awardPoints(userId: string, points: number, source: string, description?: string) {
+    return this.request('/gamification/points/award', {
+      method: 'POST',
+      body: JSON.stringify({ userId, points, source, description }),
+    });
+  }
+
+  // ============ WHITE-LABEL MANAGEMENT ============
+  async getTenants() {
+    return this.request('/white-label/tenants');
+  }
+
+  async createTenant(data: { name: string; subdomain: string }) {
+    return this.request('/white-label/tenants', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateBrandSettings(tenantId: string, data: any) {
+    return this.request(`/white-label/tenants/${tenantId}/settings`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getBrandSettings(tenantId: string) {
+    return this.request(`/white-label/tenants/${tenantId}/settings`);
+  }
+
+  async addCustomDomain(tenantId: string, domain: string) {
+    return this.request(`/white-label/tenants/${tenantId}/domains`, {
+      method: 'POST',
+      body: JSON.stringify({ domain }),
+    });
+  }
+
+  async getCustomDomains(tenantId: string) {
+    return this.request(`/white-label/tenants/${tenantId}/domains`);
+  }
+
+  async verifyDomain(domainId: string) {
+    return this.request(`/white-label/domains/${domainId}/verify`, {
+      method: 'POST',
+    });
+  }
+
+  async generateApiKey(tenantId: string) {
+    return this.request(`/white-label/tenants/${tenantId}/api-keys`, {
+      method: 'POST',
+    });
   }
 }
 

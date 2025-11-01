@@ -15,6 +15,7 @@ import EmailSettings from './pages/Settings/EmailSettings';
 import AppearanceSettings from './pages/Settings/AppearanceSettings';
 import TemplateSettings from './pages/Settings/TemplateSettings';
 import FrontPageSettings from './pages/Settings/FrontPageSettings';
+import PaymentGatewaySettings from './pages/Settings/PaymentGatewaySettings';
 
 // Members Pages
 import MembersList from './pages/Members/MembersList';
@@ -143,6 +144,7 @@ function App() {
                   <Route path="/settings/appearance" element={<AppearanceSettings />} />
                   <Route path="/settings/templates" element={<TemplateSettings />} />
                   <Route path="/settings/frontpage" element={<FrontPageSettings />} />
+                  <Route path="/settings/payment-gateways" element={<PaymentGatewaySettings />} />
                   
                   {/* Members */}
                   <Route path="/members/list" element={<MembersList />} />
@@ -238,6 +240,21 @@ function App() {
                   <Route path="/payment-gateways" element={<PaymentGateways />} />
                   <Route path="/currencies" element={<Currencies />} />
                   <Route path="/matrix" element={<Matrix />} />
+                  
+                  {/* Email Campaigns */}
+                  <Route path="/email-campaigns" element={<EmailCampaigns />} />
+                  
+                  {/* White-Label */}
+                  <Route path="/white-label" element={<WhiteLabel />} />
+                  
+                  {/* Ranks Management */}
+                  <Route path="/ranks/manage" element={<ManageRanks />} />
+                  
+                  {/* Email Campaign Analytics */}
+                  <Route path="/email-campaigns/:id/stats" element={<CampaignAnalytics />} />
+                  
+                  {/* Gamification Management */}
+                  <Route path="/gamification/manage" element={<ManageGamification />} />
                 </Routes>
               </Layout>
             } />

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { formatCurrency as formatCurrencyUtil } from '../utils/currency';
 import { 
   DollarSign, 
   CreditCard,
@@ -127,12 +128,21 @@ const Withdrawal: React.FC = () => {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: primaryCurrency,
-      minimumFractionDigits: 2
-    }).format(amount);
+  const formatCurrency = (amount: number | string | null | undefined) => {
+    try {
+      if (amount === null || amount === undefined) {
+        return '0.00 USD';
+      }
+      const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+      if (isNaN(numAmount)) {
+        return '0.00 USD';
+      }
+      return formatCurrencyUtil(numAmount, primaryCurrency || 'USD');
+    } catch (error) {
+      console.error('Currency formatting error:', error);
+      const numAmount = typeof amount === 'string' ? parseFloat(amount) : (amount || 0);
+      return `${(numAmount || 0).toFixed(2)} ${primaryCurrency || 'USD'}`;
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -331,7 +341,7 @@ const Withdrawal: React.FC = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-400">Fee (2.5%):</span>
-                    <span className="text-red-400">-{formatCurrency((parseFloat(newWithdrawal.amount) || 0) * 0.025)}</span>
+                    <span className="text-red-400">-{formatCurrency(Math.abs((parseFloat(newWithdrawal.amount) || 0) * 0.025))}</span>
                   </div>
                   <div className="border-t border-gray-600 pt-2">
                     <div className="flex justify-between font-medium">
@@ -419,7 +429,7 @@ const Withdrawal: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="text-sm text-red-400">
-                      -{formatCurrency(withdrawal.fee)}
+                      -{formatCurrency(Math.abs(withdrawal.fee))}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

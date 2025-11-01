@@ -26,10 +26,18 @@ model User {
   sponsor         User?    @relation("UserReferrals", fields: [sponsorId], references: [id])
   downlines       User[]   @relation("UserReferrals")
   
-  // Financial fields
-  totalEarnings   Float    @default(0)
-  paidEarnings    Float    @default(0)
-  unpaidEarnings  Float    @default(0)
+  // Financial fields (from PHP: Total, Unpaid, Paid, RRUnpaid)
+  totalEarnings   Float    @default(0) // Total
+  paidEarnings    Float    @default(0) // Paid
+  unpaidEarnings  Float    @default(0) // Unpaid
+  rrUnpaid        Float    @default(0) // RRUnpaid (reserve requirement unpaid)
+  
+  // Credits (from PHP: banners, textads)
+  bannerCredits   Int      @default(0) // banners
+  textAdCredits   Int      @default(0) // textads
+  
+  // Wallet address for withdrawals
+  tronWallet      String?  // TronWallet for crypto withdrawals
   
   // Timestamps
   joinDate        DateTime @default(now())
@@ -49,24 +57,60 @@ model User {
   transactions    Transaction[]
   bonuses         Bonus[]
   sessions        Session[]
+  verifierEntries Verifier[] @relation("VerifierEntries")
+  transactionLogs TransactionLog[] @relation("TransactionLogs")
+  withdrawalTransactions WithdrawalTransaction[] @relation("WithdrawalTransactions")
+  globalPIFPool   GlobalPIFPool[] @relation("GlobalPIFPool")
+  videoAdPurchases VideoAdPurchase[] @relation("VideoAdPurchases")
+  referralLinks      ReferralLink[] @relation("ReferralLinks")
+  referralConversions ReferralConversion[] @relation("ReferralConversions")
+  userRanks         UserRank[] @relation("UserRanks")
+  rankHistory      RankHistory[] @relation("RankHistory")
+  conversations    ConversationMember[] @relation("ConversationMembers")
+  messages         Message[] @relation("Messages")
+  chatRooms        ChatRoomMember[] @relation("ChatRoomMembers")
+  chatMessages     ChatMessage[] @relation("ChatMessages")
+  achievements     UserAchievement[] @relation("UserAchievements")
+  badges           UserBadge[] @relation("UserBadges")
+  points           Points[] @relation("Points")
+  challenges       UserChallenge[] @relation("UserChallenges")
+  rewardRedemptions RewardRedemption[] @relation("RewardRedemptions")
   
   @@map("users")
 }
 
-// Matrix Position model
+// Matrix Position model (matches PHP matrix table structure)
 model MatrixPosition {
   id          String   @id @default(cuid())
   userId      String
+  username    String   // Username for quick lookup
   user        User     @relation("UserMatrixPositions", fields: [userId], references: [id], onDelete: Cascade)
-  matrixLevel Int
+  matrixLevel Int      // Matrix level ID (mid)
   positionPath String  // LTREE for hierarchical queries
-  sponsorId   String?
+  sponsorId   String?  // ref_by (user ID)
+  sponsorUsername String? // Sponsor username
   sponsor     User?    @relation("SponsoredMatrixPositions", fields: [sponsorId], references: [id])
+  refBy       String?  // ref_by ID (matrix position ID)
+  leader      String?  // Leader ID (matrix position ID)
+  mainId      String?  // MainID (main position ID for user)
+  
+  // Level counters (from PHP: Level1, Level2, ..., Level10)
+  level1      Int      @default(0)
+  level2      Int      @default(0)
+  level3      Int      @default(0)
+  level4      Int      @default(0)
+  level5      Int      @default(0)
+  level6      Int      @default(0)
+  level7      Int      @default(0)
+  level8      Int      @default(0)
+  level9      Int      @default(0)
+  level10     Int      @default(0)
+  
+  totalEarned Float    @default(0) // Total earnings
   status      MatrixPositionStatus @default(ACTIVE)
   cycleCount  Int      @default(0)
-  totalEarned Float    @default(0)
   createdAt   DateTime @default(now())
-  cycledAt    DateTime?
+  cycledAt    DateTime? // CDate
   
   // Relations
   bonuses     Bonus[]
@@ -75,6 +119,10 @@ model MatrixPosition {
   @@index([positionPath])
   @@index([matrixLevel])
   @@index([sponsorId])
+  @@index([refBy])
+  @@index([leader])
+  @@index([mainId])
+  @@index([username])
   @@map("matrix_positions")
 }
 
@@ -676,4 +724,799 @@ model SystemConfig {
 
   @@index([key])
   @@map("system_configs")
+}
+
+// Verifier model - queue for pending matrix entries
+model Verifier {
+  id          String   @id @default(cuid())
+  username    String   // User username
+  userId      String?  // Reference to user ID
+  user        User?    @relation("VerifierEntries", fields: [userId], references: [id], onDelete: Cascade)
+  mid         Int      // Matrix level ID
+  date        DateTime @default(now())
+  etype       Int      @default(0) // Entry type: 0=new, 1=re-entry
+  sponsor     String?  // Sponsor username
+  createdAt   DateTime @default(now())
+  
+  @@index([date])
+  @@index([mid])
+  @@index([username])
+  @@map("verifier")
+}
+
+// Membership Level model - stores matrix configuration details
+model MembershipLevel {
+  id                  String   @id @default(cuid())
+  name                String
+  fee                 Float
+  matrixtype          Int      @default(1) // 1=forced matrix, 2=unforced
+  levels              Int      @default(10) // Number of levels
+  forcedmatrix        Int      @default(2) // Matrix width
+  refbonus            Float    @default(0)
+  refbonuspaid        Int      @default(0) // 0=not paid, 1=paid, 2=auto paid
+  payouttype          Int      @default(1) // 1=cycle completion, 2=per referral, 3=on cycle
+  matrixbonus         Float    @default(0)
+  matchingbonus       Float    @default(0)
+  
+  // Level bonuses (per referral)
+  level1              Float    @default(0)
+  level2              Float    @default(0)
+  level3              Float    @default(0)
+  level4              Float    @default(0)
+  level5              Float    @default(0)
+  level6              Float    @default(0)
+  level7              Float    @default(0)
+  level8              Float    @default(0)
+  level9              Float    @default(0)
+  level10             Float    @default(0)
+  
+  // Level matching bonuses
+  level1m              Float    @default(0)
+  level2m              Float    @default(0)
+  level3m              Float    @default(0)
+  level4m              Float    @default(0)
+  level5m              Float    @default(0)
+  level6m              Float    @default(0)
+  level7m              Float    @default(0)
+  level8m              Float    @default(0)
+  level9m              Float    @default(0)
+  level10m             Float    @default(0)
+  
+  // Level cycle bonuses
+  level1c              Float    @default(0)
+  level2c              Float    @default(0)
+  level3c              Float    @default(0)
+  level4c              Float    @default(0)
+  level5c              Float    @default(0)
+  level6c              Float    @default(0)
+  level7c              Float    @default(0)
+  level8c              Float    @default(0)
+  level9c              Float    @default(0)
+  level10c             Float    @default(0)
+  
+  // Level cycle matching bonuses
+  level1cm             Float    @default(0)
+  level2cm             Float    @default(0)
+  level3cm             Float    @default(0)
+  level4cm             Float    @default(0)
+  level5cm             Float    @default(0)
+  level6cm             Float    @default(0)
+  level7cm             Float    @default(0)
+  level8cm             Float    @default(0)
+  level9cm             Float    @default(0)
+  level10cm            Float    @default(0)
+  
+  // Credits
+  textcreditsentry     Int      @default(0)
+  bannercreditsentry   Int      @default(0)
+  textcreditscycle     Int      @default(0)
+  bannercreditscycle   Int      @default(0)
+  
+  // Re-entry settings
+  reentry              Int      @default(0) // 0=disabled, 1=enabled
+  reentrynum            Int      @default(0)
+  
+  // Cross-matrix entry settings
+  entry1                Int      @default(0)
+  entry1num              Int      @default(0)
+  matrixid1              Int?
+  entry2                Int      @default(0)
+  entry2num              Int      @default(0)
+  matrixid2              Int?
+  entry3                Int      @default(0)
+  entry3num              Int      @default(0)
+  matrixid3              Int?
+  entry4                Int      @default(0)
+  entry4num              Int      @default(0)
+  matrixid4              Int?
+  entry5                Int      @default(0)
+  entry5num              Int      @default(0)
+  matrixid5              Int?
+  
+  // Email settings
+  welcomemail           Int      @default(0)
+  subject1              String?  @db.Text
+  message1              String?  @db.Text
+  eformat1              String?  // html, text
+  cyclemail             Int      @default(0)
+  subject2              String?  @db.Text
+  message2              String?  @db.Text
+  eformat2              String?
+  cyclemailsponsor      Int      @default(0)
+  subject3              String?  @db.Text
+  message3              String?  @db.Text
+  eformat3              String?
+  
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  @@unique([name])
+  @@map("membership_levels")
+}
+
+// Cron Job Status model
+model CronJob {
+  id          String   @id @default(cuid())
+  active      Boolean  @default(false)
+  lastId      String?
+  lastRun     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("cronjobs")
+}
+
+// Transaction Log model (tlogs in PHP)
+model TransactionLog {
+  id          String   @id @default(cuid())
+  username    String
+  userId      String?
+  user        User?    @relation("TransactionLogs", fields: [userId], references: [id], onDelete: Cascade)
+  memid       Int      // Matrix position ID reference
+  matrix      Int      // Matrix level ID
+  amount      Float
+  purpose     String
+  date        DateTime @default(now())
+  
+  @@index([username])
+  @@index([matrix])
+  @@index([date])
+  @@map("transaction_logs")
+}
+
+// Withdrawal Transaction model (wtransaction in PHP)
+model WithdrawalTransaction {
+  id          String   @id @default(cuid())
+  username    String
+  userId      String?
+  user        User?    @relation("WithdrawalTransactions", fields: [userId], references: [id], onDelete: Cascade)
+  paymentMode String   // e.g., "Tron: transaction_id"
+  amount      Float
+  approved    Int      @default(0) // 0=pending, 1=approved
+  date        DateTime @default(now())
+  
+  @@index([username])
+  @@index([date])
+  @@map("withdrawal_transactions")
+}
+
+// Global PIF Pool model (globalpifpool in PHP)
+model GlobalPIFPool {
+  id          String   @id @default(cuid())
+  username    String
+  userId      String?
+  user        User?    @relation("GlobalPIFPool", fields: [userId], references: [id], onDelete: Cascade)
+  sponsor     String?  // Sponsor username
+  date        DateTime @default(now())
+  
+  @@index([username])
+  @@index([sponsor])
+  @@index([date])
+  @@map("global_pif_pool")
+}
+
+// ============ REFERRAL TRACKING ============
+
+// Referral Link model
+model ReferralLink {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation("ReferralLinks", fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  linkCode        String   @unique
+  url             String
+  utmSource       String?
+  utmMedium       String?
+  utmCampaign     String?
+  utmTerm         String?
+  utmContent      String?
+  clicks          Int      @default(0)
+  signups         Int      @default(0)
+  conversions     Int      @default(0)
+  totalEarnings   Float    @default(0)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  clickRecords    ReferralClick[]
+  conversionRecords ReferralConversion[]
+  
+  @@index([userId])
+  @@index([linkCode])
+  @@index([isActive])
+  @@map("referral_links")
+}
+
+// Referral Click model
+model ReferralClick {
+  id              String   @id @default(cuid())
+  linkId          String
+  link            ReferralLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  visitorIp       String?
+  userAgent       String?
+  referrer         String?
+  clickedAt        DateTime @default(now())
+  converted        Boolean  @default(false)
+  convertedAt      DateTime?
+  
+  // Relations
+  conversions     ReferralConversion[]
+  
+  @@index([linkId])
+  @@index([clickedAt])
+  @@map("referral_clicks")
+}
+
+// Referral Conversion model
+model ReferralConversion {
+  id              String   @id @default(cuid())
+  linkId          String
+  link            ReferralLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  clickId         String?
+  click            ReferralClick? @relation(fields: [clickId], references: [id])
+  userId          String   // Referrer
+  user            User     @relation("ReferralConversions", fields: [userId], references: [id], onDelete: Cascade)
+  newUserId       String?  // New signup
+  conversionType  String   // signup, purchase, activation
+  amount          Float    @default(0)
+  commission      Float    @default(0)
+  createdAt       DateTime @default(now())
+  
+  @@index([linkId])
+  @@index([userId])
+  @@index([newUserId])
+  @@index([conversionType])
+  @@map("referral_conversions")
+}
+
+// ============ RANK SYSTEM ============
+
+// Rank model
+model Rank {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  level           Int      @unique
+  description     String?  @db.Text
+  icon            String?
+  color           String?
+  requirements    Json?    // Array of requirement objects
+  benefits        Json?    // Array of benefits
+  bonuses         Json?    // Bonus structure
+  privileges      String[] // Array of privileges
+  isActive        Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  userRanks       UserRank[] @relation("UserRanks")
+  oldRankHistory  RankHistory[] @relation("OldRankHistory")
+  newRankHistory  RankHistory[] @relation("NewRankHistory")
+  
+  @@index([level])
+  @@index([isActive])
+  @@index([sortOrder])
+  @@map("ranks")
+}
+
+// User Rank model
+model UserRank {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation("UserRanks", fields: [userId], references: [id], onDelete: Cascade)
+  rankId          String
+  rank            Rank     @relation("UserRanks", fields: [rankId], references: [id])
+  achievedAt      DateTime @default(now())
+  expiresAt       DateTime?
+  isActive        Boolean  @default(true)
+  qualificationData Json?  // Store qualification progress
+  
+  @@index([userId])
+  @@index([rankId])
+  @@index([isActive])
+  @@map("user_ranks")
+}
+
+// Rank History model
+model RankHistory {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation("RankHistory", fields: [userId], references: [id], onDelete: Cascade)
+  oldRankId       String?
+  oldRank         Rank?    @relation("OldRankHistory", fields: [oldRankId], references: [id])
+  newRankId       String
+  newRank         Rank     @relation("NewRankHistory", fields: [newRankId], references: [id])
+  changedAt       DateTime @default(now())
+  reason          String?  // auto, manual, disqualification
+  changedBy       String?  // userId or system
+  
+  @@index([userId])
+  @@index([changedAt])
+  @@map("rank_history")
+}
+
+// ============ MESSAGING SYSTEM ============
+
+// Conversation model
+model Conversation {
+  id              String   @id @default(cuid())
+  type            String   // direct, group, broadcast
+  name            String?
+  createdBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  lastMessageAt   DateTime?
+  
+  // Relations
+  members        ConversationMember[]
+  messages       Message[]
+  
+  @@index([createdBy])
+  @@index([type])
+  @@index([lastMessageAt])
+  @@map("conversations")
+}
+
+// Conversation Member model
+model ConversationMember {
+  id              String   @id @default(cuid())
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User     @relation("ConversationMembers", fields: [userId], references: [id], onDelete: Cascade)
+  role            String   @default("member") // member, admin, owner
+  joinedAt        DateTime @default(now())
+  lastReadAt      DateTime?
+  
+  @@index([conversationId])
+  @@index([userId])
+  @@map("conversation_members")
+}
+
+// Message model
+model Message {
+  id              String   @id @default(cuid())
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User     @relation("Messages", fields: [userId], references: [id], onDelete: Cascade)
+  content         String   @db.Text
+  type            String   @default("text") // text, image, file, system
+  parentMessageId String?
+  parentMessage   Message? @relation("MessageReplies", fields: [parentMessageId], references: [id])
+  replies         Message[] @relation("MessageReplies")
+  isEdited        Boolean  @default(false)
+  editedAt        DateTime?
+  createdAt       DateTime @default(now())
+  
+  // Relations
+  attachments     MessageAttachment[]
+  reads           MessageRead[]
+  
+  @@index([conversationId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("messages")
+}
+
+// Message Attachment model
+model MessageAttachment {
+  id              String   @id @default(cuid())
+  messageId       String
+  message         Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  fileName        String
+  fileUrl         String
+  fileType        String
+  fileSize        Int      // in bytes
+  createdAt       DateTime @default(now())
+  
+  @@index([messageId])
+  @@map("message_attachments")
+}
+
+// Message Read model
+model MessageRead {
+  id              String   @id @default(cuid())
+  messageId       String
+  message         Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId          String
+  readAt          DateTime @default(now())
+  
+  @@unique([messageId, userId])
+  @@index([messageId])
+  @@index([userId])
+  @@map("message_reads")
+}
+
+// ============ LIVE CHAT SYSTEM ============
+
+// Chat Room model
+model ChatRoom {
+  id              String   @id @default(cuid())
+  name            String
+  type            String   // public, private, support
+  description     String?  @db.Text
+  isPublic        Boolean  @default(true)
+  createdBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  lastMessageAt   DateTime?
+  
+  // Relations
+  members        ChatRoomMember[]
+  messages       ChatMessage[]
+  
+  @@index([type])
+  @@index([isPublic])
+  @@index([lastMessageAt])
+  @@map("chat_rooms")
+}
+
+// Chat Room Member model
+model ChatRoomMember {
+  id              String   @id @default(cuid())
+  roomId          String
+  room            ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User     @relation("ChatRoomMembers", fields: [userId], references: [id], onDelete: Cascade)
+  role            String   @default("member") // member, admin, moderator
+  joinedAt        DateTime @default(now())
+  lastSeenAt      DateTime?
+  
+  @@unique([roomId, userId])
+  @@index([roomId])
+  @@index([userId])
+  @@map("chat_room_members")
+}
+
+// Chat Message model
+model ChatMessage {
+  id              String   @id @default(cuid())
+  roomId          String
+  room            ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User     @relation("ChatMessages", fields: [userId], references: [id], onDelete: Cascade)
+  content         String   @db.Text
+  type            String   @default("text") // text, image, file, system
+  attachmentUrl   String?
+  replyToId       String?
+  createdAt       DateTime @default(now())
+  
+  @@index([roomId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("chat_messages")
+}
+
+// Chat User Status model
+model ChatUser {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  status          String   @default("offline") // online, away, busy, offline
+  currentRoomId   String?
+  lastActiveAt    DateTime @default(now())
+  
+  @@index([status])
+  @@index([lastActiveAt])
+  @@map("chat_users")
+}
+
+// ============ GAMIFICATION SYSTEM ============
+
+// Achievement model
+model Achievement {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?  @db.Text
+  icon            String?
+  category        String   // referral, earnings, matrix, social, etc.
+  points          Int      @default(0)
+  requirementType String  // count, amount, streak, etc.
+  requirementValue Float  // value needed
+  isActive        Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  
+  // Relations
+  userAchievements UserAchievement[] @relation("UserAchievements")
+  
+  @@index([category])
+  @@index([isActive])
+  @@map("achievements")
+}
+
+// User Achievement model
+model UserAchievement {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation("UserAchievements", fields: [userId], references: [id], onDelete: Cascade)
+  achievementId   String
+  achievement     Achievement @relation("UserAchievements", fields: [achievementId], references: [id])
+  progress        Float    @default(0)
+  earnedAt        DateTime?
+  isEarned        Boolean  @default(false)
+  
+  @@unique([userId, achievementId])
+  @@index([userId])
+  @@index([achievementId])
+  @@map("user_achievements")
+}
+
+// Badge model
+model Badge {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?  @db.Text
+  icon            String?
+  rarity          String   @default("common") // common, rare, epic, legendary
+  category        String
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  
+  // Relations
+  userBadges     UserBadge[] @relation("UserBadges")
+  
+  @@index([category])
+  @@index([rarity])
+  @@map("badges")
+}
+
+// User Badge model
+model UserBadge {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation("UserBadges", fields: [userId], references: [id], onDelete: Cascade)
+  badgeId         String
+  badge           Badge    @relation("UserBadges", fields: [badgeId], references: [id])
+  earnedAt        DateTime @default(now())
+  displayed       Boolean  @default(true)
+  
+  @@unique([userId, badgeId])
+  @@index([userId])
+  @@index([badgeId])
+  @@map("user_badges")
+}
+
+// Points model
+model Points {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation("Points", fields: [userId], references: [id], onDelete: Cascade)
+  points          Int      // positive for earning, negative for spending
+  source          String   // achievement, challenge, purchase, etc.
+  description     String?
+  relatedId       String?  // ID of related entity (achievement, challenge, etc.)
+  createdAt       DateTime @default(now())
+  
+  @@index([userId])
+  @@index([source])
+  @@index([createdAt])
+  @@map("points")
+}
+
+// Challenge model
+model Challenge {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?  @db.Text
+  type            String   // daily, weekly, monthly, special
+  startDate       DateTime
+  endDate         DateTime
+  requirements    Json?    // Challenge requirements
+  reward          Json?    // Reward structure (points, badge, etc.)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  
+  // Relations
+  userChallenges  UserChallenge[] @relation("UserChallenges")
+  
+  @@index([type])
+  @@index([isActive])
+  @@index([startDate])
+  @@index([endDate])
+  @@map("challenges")
+}
+
+// User Challenge model
+model UserChallenge {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation("UserChallenges", fields: [userId], references: [id], onDelete: Cascade)
+  challengeId     String
+  challenge       Challenge @relation("UserChallenges", fields: [challengeId], references: [id])
+  progress        Float    @default(0)
+  status          String   @default("active") // active, completed, failed
+  completedAt     DateTime?
+  joinedAt        DateTime @default(now())
+  
+  @@unique([userId, challengeId])
+  @@index([userId])
+  @@index([challengeId])
+  @@index([status])
+  @@map("user_challenges")
+}
+
+// Rewards Shop model
+model Reward {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?  @db.Text
+  cost            Int      // Points cost
+  type            String   // physical, digital, discount, etc.
+  quantity        Int      @default(-1) // -1 for unlimited
+  remaining       Int      @default(-1)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  redemptions     RewardRedemption[] @relation("RewardRedemptions")
+  
+  @@index([type])
+  @@index([isActive])
+  @@map("rewards")
+}
+
+// Reward Redemption model
+model RewardRedemption {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation("RewardRedemptions", fields: [userId], references: [id], onDelete: Cascade)
+  rewardId        String
+  reward          Reward   @relation("RewardRedemptions", fields: [rewardId], references: [id])
+  pointsSpent     Int
+  status          String   @default("pending") // pending, processing, completed, cancelled
+  redeemedAt      DateTime @default(now())
+  completedAt     DateTime?
+  
+  @@index([userId])
+  @@index([rewardId])
+  @@index([status])
+  @@map("reward_redemptions")
+}
+
+// ============ EMAIL CAMPAIGNS ============
+
+// Email Campaign model
+model EmailCampaign {
+  id              String   @id @default(cuid())
+  name            String
+  type            String   // drip, trigger, broadcast, ab-test
+  status          String   @default("draft") // draft, scheduled, active, paused, completed
+  scheduledAt     DateTime?
+  sentAt          DateTime?
+  createdBy       String?
+  subject         String?
+  templateId      String?
+  segments        Json?    // Target segments
+  abTestConfig    Json?    // A/B test configuration
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  emails          CampaignEmail[]
+  recipients      CampaignRecipient[]
+  
+  @@index([type])
+  @@index([status])
+  @@index([scheduledAt])
+  @@map("email_campaigns")
+}
+
+// Campaign Email model (for A/B testing)
+model CampaignEmail {
+  id              String   @id @default(cuid())
+  campaignId      String
+  campaign        EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  templateId      String?
+  subject         String
+  content         String   @db.Text
+  variant         String?  // A, B, C for A/B testing
+  sentCount       Int      @default(0)
+  openCount       Int      @default(0)
+  clickCount      Int      @default(0)
+  createdAt       DateTime @default(now())
+  
+  @@index([campaignId])
+  @@map("campaign_emails")
+}
+
+// Campaign Recipient model
+model CampaignRecipient {
+  id              String   @id @default(cuid())
+  campaignId      String
+  campaign        EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  userId          String?
+  email           String
+  status          String   @default("pending") // pending, sent, opened, clicked, bounced, unsubscribed
+  openedAt        DateTime?
+  clickedAt       DateTime?
+  createdAt       DateTime @default(now())
+  
+  @@index([campaignId])
+  @@index([userId])
+  @@index([email])
+  @@index([status])
+  @@map("campaign_recipients")
+}
+
+// ============ WHITE-LABEL & MULTI-TENANT ============
+
+// Tenant model (for multi-tenant support)
+model Tenant {
+  id              String   @id @default(cuid())
+  name            String
+  subdomain       String   @unique
+  apiKey          String   @unique
+  apiSecret       String
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  brandSettings   BrandSettings? @relation("BrandSettings")
+  
+  @@index([subdomain])
+  @@index([isActive])
+  @@map("tenants")
+}
+
+// Brand Settings model
+model BrandSettings {
+  id              String   @id @default(cuid())
+  tenantId        String?  @unique
+  tenant          Tenant?  @relation("BrandSettings", fields: [tenantId], references: [id])
+  brandName       String
+  logoUrl         String?
+  faviconUrl      String?
+  primaryColor    String   @default("#3B82F6")
+  secondaryColor  String   @default("#1E40AF")
+  fontFamily      String   @default("Inter")
+  customCSS       String?  @db.Text
+  customJS        String?  @db.Text
+  footerText      String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("brand_settings")
+}
+
+// Custom Domain model
+model CustomDomain {
+  id              String   @id @default(cuid())
+  tenantId        String?
+  domain          String   @unique
+  sslCertificate  String?
+  dnsConfigured  Boolean  @default(false)
+  verified        Boolean  @default(false)
+  verifiedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([domain])
+  @@index([verified])
+  @@map("custom_domains")
 }

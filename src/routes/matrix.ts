@@ -98,6 +98,22 @@ router.get(
 );
 
 /**
+ * @route   POST /api/matrix/purchase-position
+ * @desc    Purchase matrix position (create verifier entry)
+ * @access  Private
+ */
+router.post(
+  '/purchase-position',
+  verifyToken,
+  validateBody(Joi.object({
+    matrixLevel: Joi.number().integer().min(1).required(),
+    sponsor: Joi.string().optional(),
+    entryType: Joi.number().integer().default(1) // 1=normal, 2=re-entry, 3=cross-entry
+  })),
+  catchAsync(matrixController.purchasePosition.bind(matrixController))
+);
+
+/**
  * @route   GET /api/matrix/levels/:level/positions
  * @desc    Get available positions in matrix level
  * @access  Private

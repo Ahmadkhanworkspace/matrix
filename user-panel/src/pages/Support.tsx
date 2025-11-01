@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
+import { apiService } from '../api/api';
+import toast from 'react-hot-toast';
 import { 
   MessageCircle, 
   HelpCircle, 
@@ -14,7 +16,8 @@ import {
   Search,
   FileText,
   Video,
-  BookOpen
+  BookOpen,
+  X
 } from 'lucide-react';
 
 interface Ticket {
@@ -37,71 +40,124 @@ interface FAQ {
 
 const Support: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'tickets' | 'faq' | 'contact'>('tickets');
-  const [tickets, setTickets] = useState<Ticket[]>([
-    {
-      id: '1',
-      subject: 'Payment withdrawal issue',
-      status: 'in-progress',
-      priority: 'high',
-      category: 'Payments',
-      createdAt: '2024-01-10',
-      lastUpdated: '2024-01-12',
-      messages: 3
-    },
-    {
-      id: '2',
-      subject: 'Matrix position placement',
-      status: 'open',
-      priority: 'medium',
-      category: 'Matrix',
-      createdAt: '2024-01-11',
-      lastUpdated: '2024-01-11',
-      messages: 1
-    },
-    {
-      id: '3',
-      subject: 'Account verification',
-      status: 'resolved',
-      priority: 'low',
-      category: 'Account',
-      createdAt: '2024-01-08',
-      lastUpdated: '2024-01-09',
-      messages: 2
-    }
-  ]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [faqs, setFaqs] = useState<FAQ[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    subject: '',
+    message: '',
+    category: 'General',
+    priority: 'medium'
+  });
 
-  const faqs: FAQ[] = [
-    {
-      id: '1',
-      question: 'How do I withdraw my earnings?',
-      answer: 'You can withdraw your earnings from the Wallet page. Click on "Withdraw" and enter the amount you wish to withdraw. Withdrawals are processed within 24-48 hours.',
-      category: 'Payments'
-    },
-    {
-      id: '2',
-      question: 'How does the matrix system work?',
-      answer: 'The matrix system is a 3x3 structure where each level must be filled before moving to the next. When a level is complete, you cycle and earn bonuses.',
-      category: 'Matrix'
-    },
-    {
-      id: '3',
-      question: 'How do I refer new members?',
-      answer: 'Share your referral link with potential members. When they register using your link, they become part of your downline and you earn referral bonuses.',
-      category: 'Referrals'
-    },
-    {
-      id: '4',
-      question: 'What are the minimum withdrawal amounts?',
-      answer: 'The minimum withdrawal amount is $50 for most payment methods. Some methods may have different minimums.',
-      category: 'Payments'
-    },
-    {
-      id: '5',
-      question: 'How long does it take to process payments?',
-      answer: 'Deposits are usually processed instantly. Withdrawals take 24-48 hours for processing and approval.',
-      category: 'Payments'
+  useEffect(() => {
+    if (activeTab === 'tickets') {
+      fetchTickets();
+    } else if (activeTab === 'faq') {
+      fetchFAQ();
     }
-  ];
+  }, [activeTab]);
+
+  const fetchTickets = async () => {
+    try {
+      setLoading(true);
+      const response = await apiService.getSupportTickets();
+      
+      if (response.success && response.data) {
+        const apiTickets: Ticket[] = response.data.map((t: any) => ({
+          id: t.id.toString(),
+          subject: t.subject,
+          status: t.status,
+          priority: t.priority,
+          category: t.category || 'General',
+          createdAt: t.createdAt || new Date().toISOString(),
+          lastUpdated: t.lastUpdated || t.createdAt || new Date().toISOString(),
+          messages: t.messages || 0
+        }));
+        setTickets(apiTickets);
+      } else {
+        setTickets([]);
+      }
+    } catch (error) {
+      console.error('Error fetching tickets:', error);
+      setTickets([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchFAQ = async () => {
+    try {
+      setLoading(true);
+      const response = await apiService.getFAQ();
+      
+      if (response.success && response.data) {
+        const apiFaqs: FAQ[] = response.data.map((f: any) => ({
+          id: f.id.toString(),
+          question: f.question,
+          answer: f.answer,
+          category: f.category || 'General'
+        }));
+        setFaqs(apiFaqs);
+      } else {
+        setFaqs([]);
+      }
+    } catch (error) {
+      console.error('Error fetching FAQ:', error);
+      setFaqs([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateTicket = () => {
+    setShowCreateModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowCreateModal(false);
+    setFormData({
+      subject: '',
+      message: '',
+      category: 'General',
+      priority: 'medium'
+    });
+  };
+
+  const handleSubmitTicket = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.subject.trim() || !formData.message.trim()) {
+      toast.error('Please fill in both subject and message');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const response = await apiService.createSupportTicket({
+        subject: formData.subject.trim(),
+        message: formData.message.trim(),
+        category: formData.category,
+        priority: formData.priority
+      });
+
+      if (response.success) {
+        toast.success('Support ticket created successfully!');
+        handleCloseModal();
+        // Refresh tickets list
+        await fetchTickets();
+      } else {
+        toast.error(response.error || 'Failed to create ticket');
+      }
+    } catch (error: any) {
+      console.error('Error creating ticket:', error);
+      toast.error(error.message || 'Failed to create ticket');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -140,7 +196,7 @@ const Support: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900">Support Center</h1>
           <p className="text-gray-600">Get help with your account and transactions</p>
         </div>
-        <Button>
+        <Button onClick={handleCreateTicket}>
           <Plus className="h-4 w-4 mr-2" />
           New Ticket
         </Button>
@@ -359,6 +415,114 @@ const Support: React.FC = () => {
                 <BookOpen className="h-4 w-4 mr-2" />
                 Read Documentation
               </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Create Ticket Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <CardTitle>Create Support Ticket</CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCloseModal}
+                  className="h-8 w-8 p-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmitTicket} className="space-y-4">
+                <div>
+                  <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-1">
+                    Subject *
+                  </label>
+                  <input
+                    id="subject"
+                    type="text"
+                    required
+                    value={formData.subject}
+                    onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter ticket subject"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
+                    Category
+                  </label>
+                  <select
+                    id="category"
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="General">General</option>
+                    <option value="Account">Account</option>
+                    <option value="Payments">Payments</option>
+                    <option value="Matrix">Matrix</option>
+                    <option value="Withdrawal">Withdrawal</option>
+                    <option value="Technical">Technical</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-1">
+                    Priority
+                  </label>
+                  <select
+                    id="priority"
+                    value={formData.priority}
+                    onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1">
+                    Message *
+                  </label>
+                  <textarea
+                    id="message"
+                    required
+                    rows={6}
+                    value={formData.message}
+                    onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    placeholder="Describe your issue in detail..."
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-3 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCloseModal}
+                    disabled={submitting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={submitting || !formData.subject.trim() || !formData.message.trim()}
+                  >
+                    {submitting ? 'Creating...' : 'Create Ticket'}
+                  </Button>
+                </div>
+              </form>
             </CardContent>
           </Card>
         </div>

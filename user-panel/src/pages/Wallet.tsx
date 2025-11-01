@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { formatCurrency as formatCurrencyUtil } from '../utils/currency';
+import { apiService } from '../api/api';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -47,58 +49,28 @@ const Wallet: React.FC = () => {
   const fetchTransactions = async () => {
     try {
       setLoading(true);
-      // Mock data for now
-      const mockTransactions: Transaction[] = [
-        {
-          id: 1,
-          type: 'cycle_completion',
-          amount: 250.00,
-          description: 'Matrix 1 Level 3 cycle completed',
-          date: '2024-01-15T10:30:00Z',
-          status: 'completed',
-          reference: 'CYC-001'
-        },
-        {
-          id: 2,
-          type: 'referral',
-          amount: 50.00,
-          description: 'Referral bonus from new member',
-          date: '2024-01-14T15:45:00Z',
-          status: 'completed',
-          reference: 'REF-002'
-        },
-        {
-          id: 3,
-          type: 'withdrawal',
-          amount: -500.00,
-          description: 'Withdrawal request',
-          date: '2024-01-13T08:15:00Z',
-          status: 'pending',
-          reference: 'WTH-003'
-        },
-        {
-          id: 4,
-          type: 'deposit',
-          amount: 1000.00,
-          description: 'Account deposit',
-          date: '2024-01-12T14:20:00Z',
-          status: 'completed',
-          reference: 'DEP-004'
-        },
-        {
-          id: 5,
-          type: 'bonus',
-          amount: 100.00,
-          description: 'Fast start bonus',
-          date: '2024-01-11T09:30:00Z',
-          status: 'completed',
-          reference: 'BNS-005'
-        }
-      ];
+      const response = await apiService.getTransactions({ page: 1, limit: 100 });
       
-      setTransactions(mockTransactions);
+      if (response.success && response.data) {
+        // Map API response to Transaction format
+        const apiTransactions: Transaction[] = response.data.map((t: any) => ({
+          id: t.id,
+          type: t.type,
+          amount: typeof t.amount === 'string' ? parseFloat(t.amount) : t.amount,
+          description: t.description || `${t.type} transaction`,
+          date: t.date,
+          status: t.status,
+          reference: t.reference || t.id.toString()
+        }));
+        setTransactions(apiTransactions);
+      } else {
+        // Fallback to empty array if API fails
+        setTransactions([]);
+      }
     } catch (error) {
       console.error('Failed to fetch transactions:', error);
+      // Keep empty array on error
+      setTransactions([]);
     } finally {
       setLoading(false);
     }
@@ -123,12 +95,21 @@ const Wallet: React.FC = () => {
     setFilteredTransactions(filtered);
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: primaryCurrency,
-      minimumFractionDigits: 2
-    }).format(amount);
+  const formatCurrency = (amount: number | string | null | undefined) => {
+    try {
+      if (amount === null || amount === undefined) {
+        return '0.00 USD';
+      }
+      const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+      if (isNaN(numAmount)) {
+        return '0.00 USD';
+      }
+      return formatCurrencyUtil(numAmount, primaryCurrency || 'USD');
+    } catch (error) {
+      console.error('Currency formatting error:', error);
+      const numAmount = typeof amount === 'string' ? parseFloat(amount) : (amount || 0);
+      return `${(numAmount || 0).toFixed(2)} ${primaryCurrency || 'USD'}`;
+    }
   };
 
   const getTransactionIcon = (type: string) => {
@@ -384,7 +365,7 @@ const Wallet: React.FC = () => {
                     <span className={`text-sm font-medium ${
                       transaction.amount >= 0 ? 'text-green-400' : 'text-red-400'
                     }`}>
-                      {transaction.amount >= 0 ? '+' : ''}{formatCurrency(transaction.amount)}
+                      {transaction.amount >= 0 ? '+' : ''}{formatCurrency(Math.abs(transaction.amount))}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

@@ -582,4 +582,118 @@ export class MatrixController {
       } as ApiResponse);
     }
   }
+
+  /**
+   * Purchase matrix position - creates verifier entry for cron to process
+   */
+  async purchasePosition(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = (req as any).user?.id;
+      const { matrixLevel, sponsor, entryType = 1 } = req.body;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          message: 'Unauthorized'
+        } as ApiResponse);
+        return;
+      }
+
+      // Get user
+      const user = await prisma.user.findUnique({
+        where: { id: userId }
+      });
+
+      if (!user) {
+        res.status(404).json({
+          success: false,
+          message: 'User not found'
+        } as ApiResponse);
+        return;
+      }
+
+      // Get matrix config to check price
+      const matrixConfig = await prisma.matrixConfig.findUnique({
+        where: { level: matrixLevel }
+      });
+
+      if (!matrixConfig || !matrixConfig.isActive) {
+        res.status(404).json({
+          success: false,
+          message: 'Matrix level not found or inactive'
+        } as ApiResponse);
+        return;
+      }
+
+      // Check if user already has position in this matrix level
+      const existingPosition = await prisma.matrixPosition.findFirst({
+        where: {
+          userId,
+          matrixLevel
+        }
+      });
+
+      if (existingPosition && entryType === 1) {
+        res.status(400).json({
+          success: false,
+          message: 'You already have a position in this matrix level'
+        } as ApiResponse);
+        return;
+      }
+
+      // Determine sponsor
+      let sponsorUsername = sponsor || user.sponsorId;
+      if (sponsorUsername && typeof sponsorUsername === 'string' && sponsorUsername.length > 0) {
+        // If sponsor is username, verify it exists
+        const sponsorUser = await prisma.user.findUnique({
+          where: { username: sponsorUsername }
+        });
+        if (sponsorUser) {
+          sponsorUsername = sponsorUser.username;
+        } else {
+          sponsorUsername = null;
+        }
+      } else {
+        // Use user's sponsor
+        if (user.sponsorId) {
+          const sponsorUser = await prisma.user.findUnique({
+            where: { id: user.sponsorId }
+          });
+          sponsorUsername = sponsorUser?.username || null;
+        } else {
+          sponsorUsername = null;
+        }
+      }
+
+      // Create verifier entry - this will be processed by cron
+      const verifierEntry = await prisma.verifier.create({
+        data: {
+          username: user.username,
+          userId: user.id,
+          mid: matrixLevel,
+          date: new Date(),
+          etype: entryType,
+          sponsor: sponsorUsername || undefined
+        }
+      });
+
+      res.json({
+        success: true,
+        message: 'Matrix position purchase initiated. Your position will be processed shortly.',
+        data: {
+          verifierId: verifierEntry.id,
+          matrixLevel: matrixConfig.name,
+          price: matrixConfig.price,
+          currency: matrixConfig.currency,
+          status: 'pending'
+        }
+      } as ApiResponse);
+    } catch (error) {
+      logger.error('Error purchasing matrix position:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to purchase matrix position'
+      } as ApiResponse);
+    }
+  }
 } 

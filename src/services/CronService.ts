@@ -136,31 +136,14 @@ export class CronService {
 
   private async processMatrixQueue(): Promise<void> {
     try {
-      const matrixService = new MatrixService();
+      // Use MatrixCronService to handle all matrix processing logic
+      // This processes the verifier queue, places users in matrix, distributes bonuses, etc.
+      const { MatrixCronService } = await import('./MatrixCronService');
+      const matrixCronService = new MatrixCronService();
       
-      // Get pending matrix positions
-      const pendingPositions = await prisma.matrixPosition.findMany({
-        where: {
-          status: 'ACTIVE'
-        },
-        include: {
-          user: true
-        }
-      });
-
-      logger.info(`Processing ${pendingPositions.length} matrix positions`);
-
-      for (const position of pendingPositions) {
-        try {
-          // Check for cycle completion - using a different approach since the method doesn't exist
-          // For now, we'll just log that we're processing the position
-          logger.info(`Processing matrix position ${position.id} for level ${position.matrixLevel}`);
-        } catch (error) {
-          logger.error(`Error processing matrix position ${position.id}:`, error);
-        }
-      }
+      await matrixCronService.processVerifierQueue();
     } catch (error) {
-      logger.error('Error in matrix processing:', error);
+      logger.error('Error in matrix queue processing:', error);
     }
   }
 

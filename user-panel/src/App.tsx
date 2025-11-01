@@ -17,6 +17,14 @@ import GlobalPIF from './pages/GlobalPIF';
 import Support from './pages/Support';
 import Stats from './pages/Stats';
 import NextToCycle from './pages/NextToCycle';
+import ReferralDashboard from './pages/ReferralDashboard';
+import RankDashboard from './pages/RankDashboard';
+import Messages from './pages/Messages';
+import Gamification from './pages/Gamification';
+import ReferralLeaderboard from './pages/ReferralLeaderboard';
+import DownlineTree from './pages/DownlineTree';
+import AdvancedMatrix from './pages/AdvancedMatrix';
+import CommissionBreakdown from './pages/CommissionBreakdown';
 
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuth();
@@ -27,7 +35,7 @@ const App: React.FC = () => {
   return (
     <AuthProvider>
       <CurrencyProvider>
-        <Router>
+        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
@@ -119,6 +127,62 @@ const App: React.FC = () => {
               <PrivateRoute>
                 <Layout>
                   <NextToCycle />
+                </Layout>
+              </PrivateRoute>
+            } />
+            <Route path="/referrals" element={
+              <PrivateRoute>
+                <Layout>
+                  <ReferralDashboard />
+                </Layout>
+              </PrivateRoute>
+            } />
+            <Route path="/ranks" element={
+              <PrivateRoute>
+                <Layout>
+                  <RankDashboard />
+                </Layout>
+              </PrivateRoute>
+            } />
+            <Route path="/messages" element={
+              <PrivateRoute>
+                <Layout>
+                  <Messages />
+                </Layout>
+              </PrivateRoute>
+            } />
+            <Route path="/gamification" element={
+              <PrivateRoute>
+                <Layout>
+                  <Gamification />
+                </Layout>
+              </PrivateRoute>
+            } />
+            <Route path="/referrals/leaderboard" element={
+              <PrivateRoute>
+                <Layout>
+                  <ReferralLeaderboard />
+                </Layout>
+              </PrivateRoute>
+            } />
+            <Route path="/referrals/downline-tree" element={
+              <PrivateRoute>
+                <Layout>
+                  <DownlineTree />
+                </Layout>
+              </PrivateRoute>
+            } />
+            <Route path="/matrix/advanced" element={
+              <PrivateRoute>
+                <Layout>
+                  <AdvancedMatrix />
+                </Layout>
+              </PrivateRoute>
+            } />
+            <Route path="/referrals/commission-breakdown" element={
+              <PrivateRoute>
+                <Layout>
+                  <CommissionBreakdown />
                 </Layout>
               </PrivateRoute>
             } />

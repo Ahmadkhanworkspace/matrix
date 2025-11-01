@@ -23,9 +23,9 @@ interface CurrencyProviderProps {
 }
 
 export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({ children }) => {
-  const [primaryCurrency, setPrimaryCurrency] = useState<string>('USDT');
+  const [primaryCurrency, setPrimaryCurrency] = useState<string>('USD');
   const [supportedCurrencies, setSupportedCurrencies] = useState<string[]>([
-    'USDT', 'BTC', 'ETH', 'TRX'
+    'USD', 'USDT', 'BTC', 'ETH', 'TRX'
   ]);
 
   const updatePrimaryCurrency = (currency: string) => {

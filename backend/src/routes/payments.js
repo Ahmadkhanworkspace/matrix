@@ -1,6 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const { query, queryOne } = require('../config/database');
+const PaymentGatewayService = require('../services/PaymentGatewayService');
 
 const router = express.Router();
 
@@ -445,6 +446,132 @@ router.get('/stats', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to get payment statistics'
+    });
+  }
+});
+
+// ============ IPN (Instant Payment Notification) Routes ============
+// These routes handle webhook callbacks from payment gateways for auto-approval
+
+const PaymentGatewayService = require('../services/PaymentGatewayService');
+
+// CoinPayments IPN endpoint (POST)
+router.post('/ipn/coinpayments', express.raw({ type: 'application/x-www-form-urlencoded' }), async (req, res) => {
+  try {
+    // Parse form data
+    const data = {};
+    if (req.body) {
+      const bodyStr = req.body.toString();
+      const params = new URLSearchParams(bodyStr);
+      for (const [key, value] of params) {
+        data[key] = value;
+      }
+    }
+
+    console.log('CoinPayments IPN received:', data);
+
+    // Process IPN
+    const result = await PaymentGatewayService.processIPN('coinpayments', data);
+
+    // CoinPayments expects 'OK' response
+    res.status(200).send('OK');
+  } catch (error) {
+    console.error('CoinPayments IPN error:', error);
+    res.status(400).send('Error');
+  }
+});
+
+// NOWPayments IPN endpoint (POST)
+router.post('/ipn/nowpayments', express.json(), async (req, res) => {
+  try {
+    const data = req.body;
+    const headers = req.headers;
+
+    console.log('NOWPayments IPN received:', data);
+
+    // Process IPN
+    const result = await PaymentGatewayService.processIPN('nowpayments', data, headers);
+
+    res.status(200).json({ status: 'ok', message: 'IPN processed successfully' });
+  } catch (error) {
+    console.error('NOWPayments IPN error:', error);
+    res.status(400).json({ status: 'error', message: error.message });
+  }
+});
+
+// Binance Pay IPN endpoint (POST)
+router.post('/ipn/binance', express.json(), async (req, res) => {
+  try {
+    const data = req.body;
+    const headers = req.headers;
+
+    console.log('Binance Pay IPN received:', data);
+
+    // Process IPN
+    const result = await PaymentGatewayService.processIPN('binance', data, headers);
+
+    res.status(200).json({
+      status: 'SUCCESS',
+      code: '000000',
+      message: 'Success'
+    });
+  } catch (error) {
+    console.error('Binance Pay IPN error:', error);
+    res.status(400).json({
+      status: 'FAIL',
+      code: '400000',
+      message: error.message
+    });
+  }
+});
+
+// Get gateway status (for admin panel)
+router.get('/gateways/status', authenticateToken, async (req, res) => {
+  try {
+    const status = PaymentGatewayService.getGatewayStatus();
+    res.json({
+      success: true,
+      data: status
+    });
+  } catch (error) {
+    console.error('Get gateway status error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get gateway status'
+    });
+  }
+});
+
+// Create deposit via payment gateway
+router.post('/deposit/create', authenticateToken, async (req, res) => {
+  try {
+    const { username, amount, currency = 'USDT', gateway = 'coinpayments', matrixLevel } = req.body;
+
+    if (!username || !amount) {
+      return res.status(400).json({
+        success: false,
+        error: 'Username and amount are required'
+      });
+    }
+
+    const result = await PaymentGatewayService.createDeposit(
+      username,
+      amount,
+      currency,
+      gateway,
+      { matrixLevel: matrixLevel || 1, description: `Matrix Position Purchase - Level ${matrixLevel || 1}` }
+    );
+
+    res.json({
+      success: true,
+      message: 'Payment request created successfully',
+      data: result
+    });
+  } catch (error) {
+    console.error('Create deposit error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to create deposit'
     });
   }
 });

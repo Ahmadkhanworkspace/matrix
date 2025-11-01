@@ -3,15 +3,18 @@ import { prisma } from '@/config/database';
 import { logger } from '@/utils/logger';
 import { PaymentGatewayService } from '@/services/PaymentGatewayService';
 import { CurrencyService } from '@/services/CurrencyService';
+import { MatrixCronService } from '@/services/MatrixCronService';
 import { ApiResponse } from '@/types';
 
 export class AdminController {
   private paymentGatewayService: PaymentGatewayService;
   private currencyService: CurrencyService;
+  private matrixCronService: MatrixCronService;
 
   constructor() {
     this.paymentGatewayService = new PaymentGatewayService();
     this.currencyService = new CurrencyService();
+    this.matrixCronService = new MatrixCronService();
   }
 
   // Dashboard
@@ -1129,6 +1132,244 @@ export class AdminController {
       res.status(500).json({
         success: false,
         message: 'Failed to toggle maintenance mode',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+
+  // Cron Job Management
+  async getCronStatus(req: Request, res: Response): Promise<void> {
+    try {
+      const cronJob = await prisma.cronJob.findFirst();
+      const pendingCount = await this.matrixCronService.getPendingCount();
+
+      const response: ApiResponse = {
+        success: true,
+        message: 'Cron status retrieved successfully',
+        data: {
+          active: cronJob?.active || false,
+          lastRun: cronJob?.lastRun,
+          lastId: cronJob?.lastId,
+          pendingEntries: pendingCount
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      res.json(response);
+    } catch (error) {
+      logger.error('Error getting cron status:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to get cron status',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+
+  async runCronManually(req: Request, res: Response): Promise<void> {
+    try {
+      // Check if cron is already running
+      const cronJob = await prisma.cronJob.findFirst();
+      if (cronJob?.active) {
+        res.status(400).json({
+          success: false,
+          message: 'Cron job is already running',
+          timestamp: new Date().toISOString()
+        });
+        return;
+      }
+
+      // Run cron job asynchronously (don't wait for completion)
+      this.matrixCronService.processVerifierQueue().catch(error => {
+        logger.error('Error in manual cron execution:', error);
+      });
+
+      const response: ApiResponse = {
+        success: true,
+        message: 'Cron job started manually',
+        timestamp: new Date().toISOString()
+      };
+
+      res.json(response);
+    } catch (error) {
+      logger.error('Error running cron manually:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to run cron manually',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+
+  async unlockCron(req: Request, res: Response): Promise<void> {
+    try {
+      await prisma.cronJob.updateMany({
+        data: { active: false }
+      });
+
+      const response: ApiResponse = {
+        success: true,
+        message: 'Cron lock released successfully',
+        timestamp: new Date().toISOString()
+      };
+
+      res.json(response);
+    } catch (error) {
+      logger.error('Error unlocking cron:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to unlock cron',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+
+  async getVerifierQueue(req: Request, res: Response): Promise<void> {
+    try {
+      const { page = 1, limit = 50, processed } = req.query;
+      const skip = (Number(page) - 1) * Number(limit);
+
+      const where: any = {};
+      if (processed !== undefined) {
+        where.processed = processed === '1' || processed === 'true' ? 1 : 0;
+      }
+
+      const [entries, total] = await Promise.all([
+        prisma.verifier.findMany({
+          where,
+          skip,
+          take: Number(limit),
+          orderBy: { date: 'asc' },
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                email: true
+              }
+            }
+          }
+        }),
+        prisma.verifier.count({ where })
+      ]);
+
+      const response: ApiResponse = {
+        success: true,
+        message: 'Verifier queue retrieved successfully',
+        data: {
+          entries,
+          pagination: {
+            page: Number(page),
+            limit: Number(limit),
+            total,
+            totalPages: Math.ceil(total / Number(limit))
+          }
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      res.json(response);
+    } catch (error) {
+      logger.error('Error getting verifier queue:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to get verifier queue',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+
+  async createVerifierEntry(req: Request, res: Response): Promise<void> {
+    try {
+      const { username, mid, date, etype, sponsor } = req.body;
+
+      if (!username || !mid) {
+        res.status(400).json({
+          success: false,
+          message: 'Username and membership level ID are required',
+          timestamp: new Date().toISOString()
+        });
+        return;
+      }
+
+      // Verify user exists
+      const user = await prisma.user.findUnique({
+        where: { username }
+      });
+
+      if (!user) {
+        res.status(404).json({
+          success: false,
+          message: 'User not found',
+          timestamp: new Date().toISOString()
+        });
+        return;
+      }
+
+      const entry = await prisma.verifier.create({
+        data: {
+          username,
+          userId: user.id,
+          mid: Number(mid),
+          date: date ? new Date(date) : new Date(),
+          etype: etype ? Number(etype) : 0,
+          sponsor: sponsor || null
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              email: true
+            }
+          }
+        }
+      });
+
+      const response: ApiResponse = {
+        success: true,
+        message: 'Verifier entry created successfully',
+        data: entry,
+        timestamp: new Date().toISOString()
+      };
+
+      res.json(response);
+    } catch (error) {
+      logger.error('Error creating verifier entry:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to create verifier entry',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+
+  async deleteVerifierEntry(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      await prisma.verifier.delete({
+        where: { id }
+      });
+
+      const response: ApiResponse = {
+        success: true,
+        message: 'Verifier entry deleted successfully',
+        timestamp: new Date().toISOString()
+      };
+
+      res.json(response);
+    } catch (error) {
+      logger.error('Error deleting verifier entry:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to delete verifier entry',
         error: error instanceof Error ? error.message : 'Unknown error',
         timestamp: new Date().toISOString()
       });

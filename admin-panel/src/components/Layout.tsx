@@ -46,6 +46,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         { name: 'Admin Settings', href: '/admin/settings/admin' },
         { name: 'Matrix Settings', href: '/admin/settings/matrices' },
         { name: 'Email Settings', href: '/admin/settings/emails' },
+        { name: 'Payment Gateway Settings', href: '/admin/settings/payment-gateways' },
         { name: 'Appearance Settings', href: '/admin/settings/appearance' },
         { name: 'Template Settings', href: '/admin/settings/templates' },
         { name: 'Front Page Settings', href: '/admin/settings/frontpage' },
@@ -76,6 +77,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         { name: 'KYC Verification', href: '/admin/members/kyc' },
         { name: 'Leadership Ranks', href: '/admin/members/leadership-ranks' },
         { name: 'Pending Email Verification', href: '/admin/members/pending-email-verification' },
+        { name: 'Manage Ranks', href: '/admin/ranks/manage' },
       ]
     },
     {
@@ -156,6 +158,8 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         { name: 'Promotional Content Manager', href: '/admin/content/promotional-content' },
         { name: 'Email Template Manager', href: '/admin/content/email-templates' },
         { name: 'Banner Manager', href: '/admin/content/banner-manager' },
+        { name: 'Email Campaigns', href: '/admin/email-campaigns' },
+        { name: 'Campaign Analytics', href: '/admin/email-campaigns/analytics' },
       ]
     },
     {
@@ -196,6 +200,8 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         { name: 'Progressive Web App', href: '/admin/tools/progressive-web-app' },
         { name: 'Reset Cron Tasks', href: '/admin/tools/reset-cron-tasks' },
         { name: 'Training Video', href: '/admin/tools/training-video' },
+        { name: 'White-Label', href: '/admin/white-label' },
+        { name: 'Gamification', href: '/admin/gamification/manage' },
       ]
     },
   ];

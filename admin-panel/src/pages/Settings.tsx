@@ -22,7 +22,7 @@ const Settings: React.FC = () => {
       description: 'Configure payment methods, currencies, and transaction settings',
       icon: CreditCard,
       color: 'bg-purple-500',
-      href: '/settings/payment'
+      href: '/admin/settings/payment-gateways'
     },
     {
       title: 'Member Management',

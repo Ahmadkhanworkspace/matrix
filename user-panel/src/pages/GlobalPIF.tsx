@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
+import { formatCurrency as formatCurrencyUtil } from '../utils/currency';
+import { apiService } from '../api/api';
 import { 
   Globe, 
   Heart, 
@@ -55,72 +57,43 @@ const GlobalPIF: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // TODO: Replace with actual API call
     const fetchPIFData = async () => {
       try {
-        // Simulated API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        setLoading(true);
         
-        setStats({
-          totalContributions: 1250,
-          totalAmount: 75000,
-          activeUsers: 450,
-          thisMonthContributions: 85,
-          thisMonthAmount: 5200,
-          topContributor: 'john_doe',
-          topAmount: 2500,
-          averageContribution: 60,
-          goalAmount: 100000,
-          goalProgress: 75
-        });
-
-        setContributions([
-          {
-            id: '1',
-            username: 'john_doe',
-            amount: 100,
-            type: 'donation',
-            date: '2024-01-12',
-            description: 'Monthly PIF contribution',
-            status: 'completed'
-          },
-          {
-            id: '2',
-            username: 'jane_smith',
-            amount: 50,
-            type: 'bonus',
-            date: '2024-01-11',
-            description: 'Bonus sharing',
-            status: 'completed'
-          },
-          {
-            id: '3',
-            username: 'mike_wilson',
-            amount: 75,
-            type: 'reward',
-            date: '2024-01-10',
-            description: 'Cycle completion reward',
-            status: 'completed'
-          },
-          {
-            id: '4',
-            username: 'sarah_jones',
-            amount: 25,
-            type: 'donation',
-            date: '2024-01-09',
-            description: 'Weekly contribution',
-            status: 'pending'
-          },
-          {
-            id: '5',
-            username: 'david_brown',
-            amount: 150,
-            type: 'bonus',
-            date: '2024-01-08',
-            description: 'Matrix completion bonus',
-            status: 'completed'
-          }
+        // Fetch stats and contributions in parallel
+        const [statsResponse, contributionsResponse] = await Promise.all([
+          apiService.getGlobalPIFStats(),
+          apiService.getGlobalPIFContributions({ page: 1, limit: 50 })
         ]);
+        
+        if (statsResponse.success && statsResponse.data) {
+          setStats({
+            totalContributions: statsResponse.data.totalContributions || 0,
+            totalAmount: statsResponse.data.totalAmount || 0,
+            activeUsers: statsResponse.data.activeUsers || 0,
+            thisMonthContributions: statsResponse.data.thisMonthContributions || 0,
+            thisMonthAmount: statsResponse.data.thisMonthAmount || 0,
+            topContributor: statsResponse.data.topContributor || '',
+            topAmount: statsResponse.data.topAmount || 0,
+            averageContribution: statsResponse.data.averageContribution || 0,
+            goalAmount: statsResponse.data.goalAmount || 100000,
+            goalProgress: statsResponse.data.goalProgress || 0
+          });
+        }
+        
+        if (contributionsResponse.success && contributionsResponse.data) {
+          const apiContributions: PIFContribution[] = contributionsResponse.data.map((c: any) => ({
+            id: c.id.toString(),
+            username: c.username,
+            amount: typeof c.amount === 'string' ? parseFloat(c.amount) : (c.amount || 0),
+            type: 'donation', // Default type
+            date: c.date || new Date().toISOString(),
+            description: 'Global PIF contribution',
+            status: c.status || 'completed'
+          }));
+          setContributions(apiContributions);
+        }
       } catch (error) {
         console.error('Error fetching PIF data:', error);
       } finally {
@@ -131,12 +104,21 @@ const GlobalPIF: React.FC = () => {
     fetchPIFData();
   }, []);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2
-    }).format(amount);
+  const formatCurrency = (amount: number | string | null | undefined) => {
+    try {
+      if (amount === null || amount === undefined) {
+        return '0.00 USD';
+      }
+      const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+      if (isNaN(numAmount)) {
+        return '0.00 USD';
+      }
+      return formatCurrencyUtil(numAmount, 'USD');
+    } catch (error) {
+      console.error('Currency formatting error:', error);
+      const numAmount = typeof amount === 'string' ? parseFloat(amount) : (amount || 0);
+      return `${(numAmount || 0).toFixed(2)} USD`;
+    }
   };
 
   const getTypeBadge = (type: string) => {

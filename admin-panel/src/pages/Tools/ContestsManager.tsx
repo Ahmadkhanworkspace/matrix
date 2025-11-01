@@ -317,21 +317,257 @@ const ContestsManager: React.FC = () => {
       {/* Create Contest Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+          <div className="relative top-10 mx-auto p-6 border w-full max-w-2xl shadow-lg rounded-md bg-white mb-10">
             <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Create New Contest</h3>
-              <div className="text-center py-8">
-                <Trophy className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">Contest creation form will be implemented here</p>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-bold text-gray-900">Create New Contest</h3>
+                <Button variant="outline" size="sm" onClick={() => setShowModal(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
-              <div className="flex justify-end space-x-3 mt-6">
+
+              <div className="space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto pr-2">
+                {/* Basic Information */}
+                <div className="border-b pb-4">
+                  <h4 className="font-semibold text-gray-900 mb-3">Basic Information</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Contest Name *
+                      </label>
+                      <Input
+                        id="contest-name"
+                        placeholder="e.g., Top Referrer Challenge"
+                        className="w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Description *
+                      </label>
+                      <textarea
+                        id="contest-description"
+                        placeholder="Describe the contest rules and objectives..."
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Contest Type *
+                        </label>
+                        <Select>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="referral">Referral Contest</SelectItem>
+                            <SelectItem value="matrix">Matrix Contest</SelectItem>
+                            <SelectItem value="earnings">Earnings Contest</SelectItem>
+                            <SelectItem value="activity">Activity Contest</SelectItem>
+                            <SelectItem value="custom">Custom Contest</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Initial Status
+                        </label>
+                        <Select defaultValue="draft">
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="draft">Draft</SelectItem>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="paused">Paused</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dates & Duration */}
+                <div className="border-b pb-4">
+                  <h4 className="font-semibold text-gray-900 mb-3">Dates & Duration</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Start Date *
+                      </label>
+                      <Input
+                        type="datetime-local"
+                        id="start-date"
+                        className="w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        End Date *
+                      </label>
+                      <Input
+                        type="datetime-local"
+                        id="end-date"
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Prize Information */}
+                <div className="border-b pb-4">
+                  <h4 className="font-semibold text-gray-900 mb-3">Prize Information</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Prize Description *
+                      </label>
+                      <Input
+                        id="prize-description"
+                        placeholder="e.g., 1000 USD Cash Prize"
+                        className="w-full"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Prize Value *
+                        </label>
+                        <Input
+                          type="number"
+                          id="prize-value"
+                          placeholder="0.00"
+                          step="0.01"
+                          className="w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Currency
+                        </label>
+                        <Select defaultValue={primaryCurrency}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="USD">USD</SelectItem>
+                            <SelectItem value="TRX">TRX</SelectItem>
+                            <SelectItem value="USDT">USDT</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Participation Settings */}
+                <div className="border-b pb-4">
+                  <h4 className="font-semibold text-gray-900 mb-3">Participation Settings</h4>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Max Participants (optional)
+                        </label>
+                        <Input
+                          type="number"
+                          id="max-participants"
+                          placeholder="Unlimited"
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-4">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="is-automatic"
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          defaultChecked
+                        />
+                        <span className="ml-2 text-sm text-gray-700">Automatic Winner Selection</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="requires-approval"
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">Requires Approval</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Rules & Criteria */}
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-3">Rules & Criteria</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Winning Criteria
+                      </label>
+                      <textarea
+                        id="winning-criteria"
+                        placeholder="Describe how winners will be determined..."
+                        rows={4}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Additional Rules (optional)
+                      </label>
+                      <textarea
+                        id="additional-rules"
+                        placeholder="Any additional rules or terms..."
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
                 <Button variant="outline" onClick={() => setShowModal(false)}>
                   Cancel
                 </Button>
                 <Button onClick={() => {
-                  toast.success('Contest creation feature coming soon!');
+                  const name = (document.getElementById('contest-name') as HTMLInputElement)?.value;
+                  const description = (document.getElementById('contest-description') as HTMLTextAreaElement)?.value;
+                  
+                  if (!name || !description) {
+                    toast.error('Please fill in required fields');
+                    return;
+                  }
+
+                  const newContest: Contest = {
+                    id: Date.now().toString(),
+                    name: name,
+                    description: description,
+                    type: (document.getElementById('contest-type') as any)?.value || 'custom',
+                    status: (document.getElementById('contest-status') as any)?.value || 'draft',
+                    startDate: (document.getElementById('start-date') as HTMLInputElement)?.value || new Date().toISOString(),
+                    endDate: (document.getElementById('end-date') as HTMLInputElement)?.value || new Date().toISOString(),
+                    prize: (document.getElementById('prize-description') as HTMLInputElement)?.value || 'TBD',
+                    prizeValue: parseFloat((document.getElementById('prize-value') as HTMLInputElement)?.value || '0'),
+                    currency: primaryCurrency,
+                    participants: 0,
+                    maxParticipants: parseInt((document.getElementById('max-participants') as HTMLInputElement)?.value || '0') || undefined,
+                    rules: {},
+                    winners: [],
+                    isAutomatic: (document.getElementById('is-automatic') as HTMLInputElement)?.checked || false,
+                    requiresApproval: (document.getElementById('requires-approval') as HTMLInputElement)?.checked || false
+                  };
+
+                  setContests([...contests, newContest]);
+                  toast.success('Contest created successfully!');
                   setShowModal(false);
                 }}>
+                  <Trophy className="h-4 w-4 mr-2" />
                   Create Contest
                 </Button>
               </div>

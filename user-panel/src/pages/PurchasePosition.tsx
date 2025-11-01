@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -14,6 +14,9 @@ import {
   Clock,
   Star
 } from 'lucide-react';
+import { apiService } from '../api/api';
+import { toast } from 'react-hot-toast';
+import { formatCurrency as formatCurrencyUtil } from '../utils/currency';
 
 interface MatrixLevel {
   id: number;
@@ -31,57 +34,70 @@ const PurchasePosition: React.FC = () => {
   const [selectedLevel, setSelectedLevel] = useState<number | null>(null);
   const [selectedMatrix, setSelectedMatrix] = useState<number>(1);
   const [loading, setLoading] = useState(false);
+  const [matrixLevels, setMatrixLevels] = useState<MatrixLevel[]>([]);
+  const [balance, setBalance] = useState(0);
+  const [loadingLevels, setLoadingLevels] = useState(true);
 
-  const matrixLevels: MatrixLevel[] = [
-    {
-      id: 1,
-      name: 'Level 1',
-      price: 100,
-      maxPositions: 3,
-      availablePositions: 2,
-      description: 'Entry level matrix position with 3x3 structure',
-      benefits: [
-        '3x3 matrix structure',
-        'Quick completion potential',
-        'Immediate earnings start',
-        'Low risk, high reward'
-      ],
-      estimatedEarnings: 300,
-      completionTime: '2-4 weeks'
-    },
-    {
-      id: 2,
-      name: 'Level 2',
-      price: 250,
-      maxPositions: 9,
-      availablePositions: 5,
-      description: 'Advanced matrix position with 9x9 structure',
-      benefits: [
-        '9x9 matrix structure',
-        'Higher earning potential',
-        'Multiple completion cycles',
-        'Leadership opportunities'
-      ],
-      estimatedEarnings: 750,
-      completionTime: '4-8 weeks'
-    },
-    {
-      id: 3,
-      name: 'Level 3',
-      price: 500,
-      maxPositions: 27,
-      availablePositions: 8,
-      description: 'Premium matrix position with 27x27 structure',
-      benefits: [
-        '27x27 matrix structure',
-        'Maximum earning potential',
-        'Multiple completion cycles',
-        'VIP member benefits'
-      ],
-      estimatedEarnings: 1500,
-      completionTime: '8-12 weeks'
+  useEffect(() => {
+    loadMatrixLevels();
+    loadUserBalance();
+  }, []);
+
+  const loadMatrixLevels = async () => {
+    try {
+      setLoadingLevels(true);
+      const response = await apiService.getMatrixLevels();
+      if (response.success) {
+        const levels = response.data?.levels || response.data || [];
+        setMatrixLevels(levels.map((level: any) => ({
+          id: level.level || level.id,
+          name: level.name || `Level ${level.level}`,
+          price: level.price || 0,
+          maxPositions: Math.pow(level.matrixWidth || 2, level.matrixDepth || 8),
+          availablePositions: Math.pow(level.matrixWidth || 2, level.matrixDepth || 8) - (level.positionsFilled || 0),
+          description: level.description || `Matrix level ${level.level} with ${level.matrixWidth}x${level.matrixDepth} structure`,
+          benefits: [
+            `${level.matrixWidth || 2}x${level.matrixDepth || 8} matrix structure`,
+            `${level.referralBonus || 0}% referral bonus`,
+            `${level.matrixBonus || 0}% matrix bonus`,
+            'Multiple completion cycles'
+          ],
+          estimatedEarnings: (level.price || 0) * 3,
+          completionTime: '4-8 weeks'
+        })));
+      }
+    } catch (error: any) {
+      console.error('Failed to load matrix levels:', error);
+      // Fallback to default levels
+      setMatrixLevels([
+        {
+          id: 1,
+          name: 'Level 1',
+          price: 100,
+          maxPositions: 3,
+          availablePositions: 2,
+          description: 'Entry level matrix position',
+          benefits: ['3x3 matrix structure', 'Quick completion', 'Immediate earnings'],
+          estimatedEarnings: 300,
+          completionTime: '2-4 weeks'
+        }
+      ]);
+    } finally {
+      setLoadingLevels(false);
     }
-  ];
+  };
+
+  const loadUserBalance = async () => {
+    try {
+      const response = await apiService.getUserProfile();
+      if (response.success) {
+        const user = response.data?.user || response.data;
+        setBalance(user?.totalEarnings || user?.balance || 0);
+      }
+    } catch (error) {
+      console.error('Failed to load balance:', error);
+    }
+  };
 
   const matrices = [
     { id: 1, name: 'Matrix Alpha', description: 'Primary matrix system' },
@@ -89,28 +105,57 @@ const PurchasePosition: React.FC = () => {
     { id: 3, name: 'Matrix Gamma', description: 'Premium matrix system' }
   ];
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2
-    }).format(amount);
+  const formatCurrency = (amount: number | string | null | undefined) => {
+    try {
+      if (amount === null || amount === undefined) {
+        return '0.00 USD';
+      }
+      const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+      if (isNaN(numAmount)) {
+        return '0.00 USD';
+      }
+      return formatCurrencyUtil(numAmount, 'USD');
+    } catch (error) {
+      console.error('Currency formatting error:', error);
+      const numAmount = typeof amount === 'string' ? parseFloat(amount) : (amount || 0);
+      return `${(numAmount || 0).toFixed(2)} USD`;
+    }
   };
 
   const handlePurchase = async () => {
-    if (!selectedLevel) return;
-    
+    if (!selectedLevel) {
+      toast.error('Please select a matrix level');
+      return;
+    }
+
+    const selectedLevelData = matrixLevels.find(level => level.id === selectedLevel);
+    if (!selectedLevelData) {
+      toast.error('Invalid matrix level selected');
+      return;
+    }
+
+    if (balance < selectedLevelData.price) {
+      toast.error('Insufficient balance. Please deposit funds first.');
+      return;
+    }
+
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Simulate successful purchase
-      alert('Position purchased successfully!');
-      setSelectedLevel(null);
-    } catch (error) {
+      const response = await apiService.purchasePosition({
+        matrixLevel: selectedLevel,
+        entryType: 1
+      });
+
+      if (response.success) {
+        toast.success('Matrix position purchase initiated! Your position will be processed shortly.');
+        setSelectedLevel(null);
+        loadUserBalance(); // Refresh balance
+      } else {
+        toast.error(response.message || 'Purchase failed');
+      }
+    } catch (error: any) {
       console.error('Purchase error:', error);
-      alert('Purchase failed. Please try again.');
+      toast.error(error.message || 'Purchase failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -135,7 +180,7 @@ const PurchasePosition: React.FC = () => {
             <DollarSign className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(2500.00)}</div>
+            <div className="text-2xl font-bold">{formatCurrency(balance)}</div>
             <p className="text-xs text-muted-foreground">Ready for purchase</p>
           </CardContent>
         </Card>
@@ -211,8 +256,19 @@ const PurchasePosition: React.FC = () => {
             <CardTitle>Select Level</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {matrixLevels.map((level) => (
+            {loadingLevels ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="text-gray-500 mt-2">Loading matrix levels...</p>
+              </div>
+            ) : matrixLevels.length === 0 ? (
+              <div className="text-center py-8">
+                <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500">No matrix levels available</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {matrixLevels.map((level) => (
                 <div
                   key={level.id}
                   className={`border rounded-lg p-4 cursor-pointer transition-colors ${
@@ -237,8 +293,9 @@ const PurchasePosition: React.FC = () => {
                     <span className="font-medium text-blue-600">{level.completionTime}</span>
                   </div>
                 </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 

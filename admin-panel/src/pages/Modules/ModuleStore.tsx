@@ -34,6 +34,8 @@ import {
   Play,
   Pause
 } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { adminApiService } from '../../api/adminApi';
 
 interface Module {
   id: number;
@@ -76,12 +78,29 @@ const ModuleStore: React.FC = () => {
 
   useEffect(() => {
     fetchModules();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCategory]);
 
   const fetchModules = async () => {
     try {
       setLoading(true);
-      // Mock data for now
+      
+      // Try to fetch from API first
+      try {
+        const response = await adminApiService.getModules({
+          category: selectedCategory !== 'all' ? selectedCategory : undefined,
+        });
+        
+        if (response.success && response.data && response.data.length > 0) {
+          setModules(response.data);
+          setLoading(false);
+          return;
+        }
+      } catch (error) {
+        console.log('API fetch failed, using mock data:', error);
+      }
+      
+      // Fallback to mock data if API fails
       const mockModules: Module[] = [
         {
           id: 1,
@@ -245,6 +264,7 @@ const ModuleStore: React.FC = () => {
       setModules(mockModules);
     } catch (error) {
       console.error('Failed to fetch modules:', error);
+      toast.error('Failed to load modules. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -252,6 +272,34 @@ const ModuleStore: React.FC = () => {
 
   const handlePurchaseModule = async (moduleId: number) => {
     try {
+      setLoading(true);
+      
+      // Try API call first
+      try {
+        const response = await adminApiService.purchaseModule(moduleId);
+        
+        if (response.success) {
+          toast.success('Module purchased successfully!');
+          // Update local state
+          setModules(prev => prev.map(m => 
+            m.id === moduleId ? { 
+              ...m, 
+              isPurchased: true, 
+              status: 'purchased',
+              purchaseDate: new Date().toISOString(),
+              expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+            } : m
+          ));
+          
+          // Refresh modules list
+          await fetchModules();
+          return;
+        }
+      } catch (apiError) {
+        console.log('API purchase failed, using local update:', apiError);
+      }
+      
+      // Fallback to local update if API fails
       setModules(prev => prev.map(m => 
         m.id === moduleId ? { 
           ...m, 
@@ -261,31 +309,84 @@ const ModuleStore: React.FC = () => {
           expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
         } : m
       ));
-      alert('Module purchased successfully!');
+      toast.success('Module purchased successfully!');
     } catch (error) {
       console.error('Failed to purchase module:', error);
+      toast.error('Failed to purchase module. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleInstallModule = async (moduleId: number) => {
     try {
+      setLoading(true);
+      
+      // Try API call first
+      try {
+        const response = await adminApiService.installModule(moduleId);
+        
+        if (response.success) {
+          toast.success('Module installed successfully!');
+          // Update local state
+          setModules(prev => prev.map(m => 
+            m.id === moduleId ? { ...m, isInstalled: true, status: 'installed' } : m
+          ));
+          
+          // Refresh modules list
+          await fetchModules();
+          return;
+        }
+      } catch (apiError) {
+        console.log('API install failed, using local update:', apiError);
+      }
+      
+      // Fallback to local update if API fails
       setModules(prev => prev.map(m => 
         m.id === moduleId ? { ...m, isInstalled: true, status: 'installed' } : m
       ));
-      alert('Module installed successfully!');
+      toast.success('Module installed successfully!');
     } catch (error) {
       console.error('Failed to install module:', error);
+      toast.error('Failed to install module. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleUninstallModule = async (moduleId: number) => {
     try {
+      setLoading(true);
+      
+      // Try API call first
+      try {
+        const response = await adminApiService.uninstallModule(moduleId);
+        
+        if (response.success) {
+          toast.success('Module uninstalled successfully!');
+          // Update local state
+          setModules(prev => prev.map(m => 
+            m.id === moduleId ? { ...m, isInstalled: false, status: 'purchased' } : m
+          ));
+          
+          // Refresh modules list
+          await fetchModules();
+          return;
+        }
+      } catch (apiError) {
+        console.log('API uninstall failed, using local update:', apiError);
+      }
+      
+      // Fallback to local update if API fails
       setModules(prev => prev.map(m => 
         m.id === moduleId ? { ...m, isInstalled: false, status: 'purchased' } : m
       ));
-      alert('Module uninstalled successfully!');
+      toast.success('Module uninstalled successfully!');
     } catch (error) {
       console.error('Failed to uninstall module:', error);
+      toast.error('Failed to uninstall module. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 

@@ -60,4 +60,14 @@ router.get('/system/health', adminController.getSystemHealth);
 router.post('/system/backup', adminController.createBackup);
 router.post('/system/maintenance', adminController.toggleMaintenance);
 
+// Cron Job Management
+router.get('/cron/status', adminController.getCronStatus);
+router.post('/cron/run', adminController.runCronManually);
+router.post('/cron/unlock', adminController.unlockCron);
+
+// Verifier Queue Management
+router.get('/verifier/queue', adminController.getVerifierQueue);
+router.post('/verifier/entry', adminController.createVerifierEntry);
+router.delete('/verifier/entry/:id', adminController.deleteVerifierEntry);
+
 export default router; 

@@ -19,7 +19,11 @@ import {
   RotateCcw,
   Menu,
   X,
-  ChevronDown
+  ChevronDown,
+  Link2,
+  Award,
+  MessageSquare,
+  Trophy
 } from 'lucide-react';
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -36,6 +40,10 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     { name: 'Withdrawal', href: '/withdrawal', icon: CreditCard },
     { name: 'Purchase Position', href: '/purchase-position', icon: ShoppingCart },
     { name: 'Manage Positions', href: '/manage-positions', icon: BarChart3 },
+    { name: 'Referrals', href: '/referrals', icon: Link2 },
+    { name: 'Ranks', href: '/ranks', icon: Award },
+    { name: 'Messages', href: '/messages', icon: MessageSquare },
+    { name: 'Gamification', href: '/gamification', icon: Trophy },
     { name: 'Promo Tools', href: '/promo-tools', icon: Megaphone },
     { name: 'Transfer Funds', href: '/transfer-funds', icon: ArrowRightLeft },
     { name: 'Global PIF', href: '/global-pif', icon: Globe },
@@ -54,7 +62,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black">
+    <div className="min-h-screen bg-white overflow-x-hidden flex">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div 
@@ -64,26 +72,26 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       )}
 
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-gray-900 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-gray-50 border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 flex-shrink-0 flex flex-col ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
-        <div className="flex items-center justify-between h-16 px-6 bg-gray-800">
+        <div className="flex items-center justify-between h-16 px-6 bg-white border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center">
             <div className="w-8 h-8 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">M</span>
             </div>
-            <span className="ml-3 text-white font-semibold">Matrix MLM</span>
+            <span className="ml-3 text-gray-900 font-semibold">Matrix MLM</span>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="lg:hidden text-gray-400 hover:text-white"
+            className="lg:hidden text-gray-600 hover:text-gray-900"
           >
             <X className="h-6 w-6" />
           </button>
         </div>
 
         {/* User info */}
-        <div className="px-6 py-4 border-b border-gray-700">
+        <div className="px-6 py-4 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center">
             <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
               <span className="text-white font-semibold">
@@ -91,15 +99,15 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               </span>
             </div>
             <div className="ml-3">
-              <p className="text-white font-medium">{user?.username}</p>
-              <p className="text-gray-400 text-sm">{user?.email}</p>
+              <p className="text-gray-900 font-medium">{user?.username}</p>
+              <p className="text-gray-600 text-sm">{user?.email}</p>
             </div>
           </div>
           <div className="mt-3 flex items-center">
             <span className={`px-2 py-1 rounded-full text-xs font-medium ${
               user?.status === 'pro' 
                 ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-black' 
-                : 'bg-gray-600 text-white'
+                : 'bg-gray-100 text-gray-700'
             }`}>
               {user?.status === 'pro' ? 'Pro Member' : 'Free Member'}
             </span>
@@ -107,7 +115,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </div>
 
         {/* Navigation */}
-        <nav className="mt-6 px-3">
+        <nav className="mt-6 px-3 flex-1 overflow-y-auto">
           <div className="space-y-1">
             {navigation.map((item) => {
               const Icon = item.icon;
@@ -115,15 +123,16 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 <Link
                   key={item.name}
                   to={item.href}
-                  className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
+                  style={{ textDecoration: 'none' }}
+                  className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 no-underline ${
                     isActive(item.href)
                       ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-black'
-                      : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                   }`}
                   onClick={() => setSidebarOpen(false)}
                 >
                   <Icon className={`mr-3 h-5 w-5 ${
-                    isActive(item.href) ? 'text-black' : 'text-gray-400 group-hover:text-white'
+                    isActive(item.href) ? 'text-black' : 'text-gray-500 group-hover:text-gray-700'
                   }`} />
                   {item.name}
                 </Link>
@@ -133,37 +142,37 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </nav>
 
         {/* Logout button */}
-        <div className="absolute bottom-0 left-0 right-0 p-4">
+        <div className="mt-auto pt-4 pb-4 px-4 border-t border-gray-200 flex-shrink-0">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 hover:text-white rounded-md transition-colors duration-200"
+            className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-md transition-colors duration-200"
           >
-            <LogOut className="mr-3 h-5 w-5 text-gray-400" />
+            <LogOut className="mr-3 h-5 w-5 text-gray-500" />
             Logout
           </button>
         </div>
-      </div>
+      </aside>
 
       {/* Main content */}
-      <div className="lg:pl-64">
+      <div className="flex-1 w-full min-w-0 flex flex-col">
         {/* Top bar */}
-        <div className="sticky top-0 z-30 bg-gray-800 border-b border-gray-700">
-          <div className="flex items-center justify-between h-16 px-6">
+        <div className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
+          <div className="flex items-center justify-between h-16 px-4 md:px-6">
             <div className="flex items-center">
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="lg:hidden text-gray-400 hover:text-white mr-4"
+                className="lg:hidden text-gray-600 hover:text-gray-900 mr-4"
               >
                 <Menu className="h-6 w-6" />
               </button>
-              <h1 className="text-white text-lg font-semibold">Matrix MLM System</h1>
+              <h1 className="text-gray-900 text-lg font-semibold">Matrix MLM System</h1>
             </div>
 
             {/* User dropdown */}
             <div className="relative">
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="flex items-center text-gray-300 hover:text-white"
+                className="flex items-center text-gray-700 hover:text-gray-900"
               >
                 <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mr-2">
                   <span className="text-white font-semibold text-sm">
@@ -175,17 +184,19 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               </button>
 
               {dropdownOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-gray-800 rounded-md shadow-lg py-1 z-50">
+                <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg py-1 z-50">
                   <Link
                     to="/profile"
-                    className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white"
+                    style={{ textDecoration: 'none', display: 'block' }}
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 no-underline"
                     onClick={() => setDropdownOpen(false)}
                   >
                     Profile
                   </Link>
                   <Link
                     to="/wallet"
-                    className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white"
+                    style={{ textDecoration: 'none', display: 'block' }}
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 no-underline"
                     onClick={() => setDropdownOpen(false)}
                   >
                     Wallet
@@ -195,7 +206,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                       handleLogout();
                       setDropdownOpen(false);
                     }}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white"
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
                   >
                     Logout
                   </button>
@@ -206,8 +217,10 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </div>
 
         {/* Page content */}
-        <main className="p-6">
-          {children}
+        <main className="p-4 md:p-6 min-h-screen bg-gray-50">
+          <div className="w-full">
+            {children}
+          </div>
         </main>
       </div>
     </div>

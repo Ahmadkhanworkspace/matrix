@@ -1,4 +1,4 @@
-import React from 'react';
+import * as React from 'react';
 
 interface ButtonProps {
   children: React.ReactNode;
@@ -8,6 +8,7 @@ interface ButtonProps {
   size?: 'sm' | 'md' | 'lg';
   disabled?: boolean;
   className?: string;
+  asChild?: boolean;
 }
 
 export const Button: React.FC<ButtonProps> = ({

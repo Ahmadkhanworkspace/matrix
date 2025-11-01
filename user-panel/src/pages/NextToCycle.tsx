@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
+import { apiService } from '../api/api';
 import { 
   Clock, 
   Users, 
@@ -34,86 +35,33 @@ const NextToCycle: React.FC = () => {
   const [filter, setFilter] = useState<'all' | 'ready' | 'pending'>('all');
 
   useEffect(() => {
-    // TODO: Replace with actual API call
     const fetchCandidates = async () => {
       try {
-        // Simulated API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        setLoading(true);
+        const response = await apiService.getNextToCycle();
         
-        setCandidates([
-          {
-            id: '1',
-            username: 'john_doe',
-            position: 1,
-            level: 3,
-            matrixId: 1,
-            progress: 95,
-            neededPositions: 1,
-            estimatedCompletion: '2024-01-15',
-            status: 'ready',
-            sponsor: 'admin',
-            joinDate: '2023-12-01',
-            lastActivity: '2024-01-10'
-          },
-          {
-            id: '2',
-            username: 'jane_smith',
-            position: 2,
-            level: 2,
-            matrixId: 1,
-            progress: 87,
-            neededPositions: 2,
-            estimatedCompletion: '2024-01-20',
-            status: 'pending',
-            sponsor: 'john_doe',
-            joinDate: '2023-12-05',
-            lastActivity: '2024-01-08'
-          },
-          {
-            id: '3',
-            username: 'mike_wilson',
-            position: 3,
-            level: 3,
-            matrixId: 1,
-            progress: 100,
-            neededPositions: 0,
-            estimatedCompletion: '2024-01-12',
-            status: 'completed',
-            sponsor: 'jane_smith',
-            joinDate: '2023-11-20',
-            lastActivity: '2024-01-12'
-          },
-          {
-            id: '4',
-            username: 'sarah_jones',
-            position: 4,
-            level: 2,
-            matrixId: 1,
-            progress: 75,
-            neededPositions: 3,
-            estimatedCompletion: '2024-01-25',
-            status: 'pending',
-            sponsor: 'mike_wilson',
-            joinDate: '2023-12-10',
-            lastActivity: '2024-01-09'
-          },
-          {
-            id: '5',
-            username: 'david_brown',
-            position: 5,
-            level: 3,
-            matrixId: 1,
-            progress: 92,
-            neededPositions: 1,
-            estimatedCompletion: '2024-01-18',
-            status: 'ready',
-            sponsor: 'sarah_jones',
-            joinDate: '2023-12-15',
-            lastActivity: '2024-01-11'
-          }
-        ]);
+        if (response.success && response.data) {
+          const apiCandidates: CycleCandidate[] = response.data.map((c: any) => ({
+            id: c.id.toString(),
+            username: c.username,
+            position: c.position || 0,
+            level: c.level,
+            matrixId: c.matrixId || c.level,
+            progress: c.progress || 0,
+            neededPositions: c.neededPositions || 0,
+            estimatedCompletion: c.estimatedCompletion || null,
+            status: c.status || 'pending',
+            sponsor: c.sponsor || '',
+            joinDate: c.joinDate || new Date().toISOString(),
+            lastActivity: c.lastActivity || new Date().toISOString()
+          }));
+          setCandidates(apiCandidates);
+        } else {
+          setCandidates([]);
+        }
       } catch (error) {
-        console.error('Error fetching candidates:', error);
+        console.error('Error fetching next to cycle:', error);
+        setCandidates([]);
       } finally {
         setLoading(false);
       }

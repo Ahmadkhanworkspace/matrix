@@ -1,6 +1,194 @@
 import React, { useState, useEffect } from 'react';
-import { Megaphone, Settings, Plus, Edit, Trash2, Save, X, Eye, BarChart3, Calendar, Image, FileText, Globe, Target } from 'lucide-react';
+import { Megaphone, Settings, Plus, Edit, Trash2, Save, X, Eye, BarChart3, Calendar, Image, FileText, Globe, Target, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCurrency } from '../../contexts/CurrencyContext';
+
+// Calendar Component
+const ContentCalendar: React.FC<{ content: PromotionalContent[] }> = ({ content }) => {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+
+  const firstDayOfMonth = new Date(year, month, 1);
+  const lastDayOfMonth = new Date(year, month + 1, 0);
+  const daysInMonth = lastDayOfMonth.getDate();
+  const startingDayOfWeek = firstDayOfMonth.getDay();
+
+  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  const getContentForDate = (date: Date) => {
+    const dateStr = date.toISOString().split('T')[0];
+    return content.filter(item => {
+      const start = new Date(item.startDate);
+      const end = new Date(item.endDate);
+      const itemDate = new Date(date);
+      return itemDate >= start && itemDate <= end;
+    });
+  };
+
+  const navigateMonth = (direction: 'prev' | 'next') => {
+    setCurrentDate(prev => {
+      const newDate = new Date(prev);
+      if (direction === 'prev') {
+        newDate.setMonth(prev.getMonth() - 1);
+      } else {
+        newDate.setMonth(prev.getMonth() + 1);
+      }
+      return newDate;
+    });
+  };
+
+  const getDateColor = (date: Date) => {
+    const items = getContentForDate(date);
+    if (items.length === 0) return '';
+    if (items.some(i => i.status === 'active')) return 'bg-green-100 border-green-300';
+    if (items.some(i => i.status === 'scheduled')) return 'bg-blue-100 border-blue-300';
+    return 'bg-yellow-100 border-yellow-300';
+  };
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 p-4">
+      {/* Calendar Header */}
+      <div className="flex items-center justify-between mb-4">
+        <button
+          onClick={() => navigateMonth('prev')}
+          className="p-2 hover:bg-gray-100 rounded"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+        <h3 className="text-lg font-semibold">
+          {months[month]} {year}
+        </h3>
+        <button
+          onClick={() => navigateMonth('next')}
+          className="p-2 hover:bg-gray-100 rounded"
+        >
+          <ChevronRight className="h-5 w-5" />
+        </button>
+      </div>
+
+      {/* Week Days Header */}
+      <div className="grid grid-cols-7 gap-1 mb-2">
+        {weekDays.map(day => (
+          <div key={day} className="text-center text-xs font-semibold text-gray-600 py-2">
+            {day}
+          </div>
+        ))}
+      </div>
+
+      {/* Calendar Days */}
+      <div className="grid grid-cols-7 gap-1">
+        {/* Empty cells for days before month starts */}
+        {Array.from({ length: startingDayOfWeek }).map((_, index) => (
+          <div key={`empty-${index}`} className="aspect-square" />
+        ))}
+
+        {/* Days of the month */}
+        {Array.from({ length: daysInMonth }).map((_, index) => {
+          const day = index + 1;
+          const date = new Date(year, month, day);
+          const items = getContentForDate(date);
+          const isToday = date.toDateString() === new Date().toDateString();
+          const isSelected = selectedDate?.toDateString() === date.toDateString();
+
+          return (
+            <div
+              key={day}
+              onClick={() => setSelectedDate(date)}
+              className={`aspect-square p-1 border rounded cursor-pointer hover:bg-gray-50 transition-colors ${
+                isToday ? 'border-blue-500 bg-blue-50' : ''
+              } ${isSelected ? 'ring-2 ring-blue-500' : ''} ${getDateColor(date)}`}
+            >
+              <div className="text-xs font-medium mb-1">{day}</div>
+              {items.length > 0 && (
+                <div className="flex flex-wrap gap-0.5">
+                  {items.slice(0, 3).map((item, idx) => (
+                    <div
+                      key={idx}
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        item.status === 'active' ? 'bg-green-500' :
+                        item.status === 'scheduled' ? 'bg-blue-500' :
+                        'bg-yellow-500'
+                      }`}
+                      title={item.title}
+                    />
+                  ))}
+                  {items.length > 3 && (
+                    <div className="text-[8px] text-gray-600">+{items.length - 3}</div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Selected Date Details */}
+      {selectedDate && (
+        <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="font-semibold text-gray-900">
+              {selectedDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            </h4>
+            <button
+              onClick={() => setSelectedDate(null)}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          {getContentForDate(selectedDate).length > 0 ? (
+            <div className="space-y-2">
+              {getContentForDate(selectedDate).map(item => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between p-2 bg-white rounded border border-gray-200"
+                >
+                  <div className="flex-1">
+                    <div className="font-medium text-sm text-gray-900">{item.title}</div>
+                    <div className="text-xs text-gray-600">
+                      {item.type} • {item.status}
+                    </div>
+                  </div>
+                  <span className={`px-2 py-1 rounded text-xs ${
+                    item.status === 'active' ? 'bg-green-100 text-green-800' :
+                    item.status === 'scheduled' ? 'bg-blue-100 text-blue-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {item.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">No content scheduled for this date</p>
+          )}
+        </div>
+      )}
+
+      {/* Legend */}
+      <div className="mt-4 flex items-center gap-4 text-xs">
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-full bg-green-500" />
+          <span>Active</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-full bg-blue-500" />
+          <span>Scheduled</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-full bg-yellow-500" />
+          <span>Draft</span>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 interface PromotionalContent {
   id: string;
@@ -529,10 +717,7 @@ const PromotionalContentManager: React.FC = () => {
 
               <div>
                 <h4 className="text-md font-medium text-gray-900 mb-4">Calendar View</h4>
-                <div className="bg-gray-50 rounded-lg p-4 text-center">
-                  <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-500">Calendar view coming soon</p>
-                </div>
+                <ContentCalendar content={content} />
               </div>
             </div>
           </div>
