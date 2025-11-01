@@ -68,6 +68,8 @@ const ContestsManager: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterType, setFilterType] = useState('');
+  const [contestType, setContestType] = useState('');
+  const [contestStatus, setContestStatus] = useState('draft');
 
   // Mock data - replace with actual API calls
   const [contests, setContests] = useState<Contest[]>([
@@ -322,7 +324,11 @@ const ContestsManager: React.FC = () => {
             <div className="mt-3">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-2xl font-bold text-gray-900">Create New Contest</h3>
-                <Button variant="outline" size="sm" onClick={() => setShowModal(false)}>
+                <Button variant="outline" size="sm" onClick={() => {
+                  setShowModal(false);
+                  setContestType('');
+                  setContestStatus('draft');
+                }}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>
@@ -358,7 +364,7 @@ const ContestsManager: React.FC = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Contest Type *
                         </label>
-                        <Select>
+                        <Select value={contestType} onValueChange={setContestType}>
                           <SelectTrigger className="w-full">
                             <SelectValue placeholder="Select type" />
                           </SelectTrigger>
@@ -375,7 +381,7 @@ const ContestsManager: React.FC = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Initial Status
                         </label>
-                        <Select defaultValue="draft">
+                        <Select value={contestStatus} onValueChange={setContestStatus}>
                           <SelectTrigger className="w-full">
                             <SelectValue />
                           </SelectTrigger>
@@ -533,7 +539,11 @@ const ContestsManager: React.FC = () => {
               </div>
 
               <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
-                <Button variant="outline" onClick={() => setShowModal(false)}>
+                <Button variant="outline" onClick={() => {
+                  setShowModal(false);
+                  setContestType('');
+                  setContestStatus('draft');
+                }}>
                   Cancel
                 </Button>
                 <Button onClick={() => {
@@ -545,12 +555,17 @@ const ContestsManager: React.FC = () => {
                     return;
                   }
 
+                  if (!contestType) {
+                    toast.error('Please select a contest type');
+                    return;
+                  }
+
                   const newContest: Contest = {
                     id: Date.now().toString(),
                     name: name,
                     description: description,
-                    type: (document.getElementById('contest-type') as any)?.value || 'custom',
-                    status: (document.getElementById('contest-status') as any)?.value || 'draft',
+                    type: contestType as 'referral' | 'matrix' | 'earnings' | 'activity' | 'custom',
+                    status: contestStatus as 'draft' | 'active' | 'paused' | 'completed' | 'cancelled',
                     startDate: (document.getElementById('start-date') as HTMLInputElement)?.value || new Date().toISOString(),
                     endDate: (document.getElementById('end-date') as HTMLInputElement)?.value || new Date().toISOString(),
                     prize: (document.getElementById('prize-description') as HTMLInputElement)?.value || 'TBD',
@@ -567,6 +582,8 @@ const ContestsManager: React.FC = () => {
                   setContests([...contests, newContest]);
                   toast.success('Contest created successfully!');
                   setShowModal(false);
+                  setContestType('');
+                  setContestStatus('draft');
                 }}>
                   <Trophy className="h-4 w-4 mr-2" />
                   Create Contest
