@@ -123,6 +123,25 @@ import WhiteLabel from './pages/WhiteLabel/WhiteLabel';
 import CampaignAnalytics from './pages/EmailCampaigns/CampaignAnalytics';
 import ManageGamification from './pages/Gamification/ManageGamification';
 
+// Private Route Component - Requires Authentication
+const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500"></div>
+      </div>
+    );
+  }
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  return <>{children}</>;
+};
+
 function App() {
   return (
     <AuthProvider>
@@ -140,13 +159,14 @@ function App() {
             {/* Register Route */}
             <Route path="/register" element={<Register />} />
             
-            {/* Admin Panel Routes */}
+            {/* Admin Panel Routes - Protected */}
             <Route path="/admin/*" element={
-              <Layout>
-                <Routes>
-                  {/* Dashboard */}
-                  <Route path="/" element={<Dashboard />} />
-                  <Route path="/dashboard" element={<Dashboard />} />
+              <PrivateRoute>
+                <Layout>
+                  <Routes>
+                    {/* Dashboard */}
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/dashboard" element={<Dashboard />} />
                   
                   {/* Settings */}
                   <Route path="/settings/admin" element={<AdminSettings />} />
