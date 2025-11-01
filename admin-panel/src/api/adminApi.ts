@@ -263,9 +263,6 @@ export class AdminApiService {
     });
   }
 
-  async getEmailTemplates() {
-    return this.request('/admin/email/templates');
-  }
 
   async saveEmailTemplate(template: any) {
     return this.request('/admin/email/templates', {
