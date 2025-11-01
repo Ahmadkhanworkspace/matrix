@@ -44,7 +44,7 @@ class RealtimeService {
       this.isConnected = false;
     });
 
-    this.socket.on('connect_error', (error) => {
+    this.socket.on('connect_error', (error: Error) => {
       console.error('Real-time connection error:', error);
       this.reconnectAttempts++;
     });
