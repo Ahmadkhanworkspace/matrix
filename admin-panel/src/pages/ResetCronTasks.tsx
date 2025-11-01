@@ -51,7 +51,7 @@ const ResetCronTasks: React.FC = () => {
   };
 
   const handleUnlockCron = async () => {
-    if (!confirm('Are you sure you want to unlock the cron? This should only be done if the cron is stuck.')) {
+    if (!window.confirm('Are you sure you want to unlock the cron? This should only be done if the cron is stuck.')) {
       return;
     }
 

@@ -56,7 +56,7 @@ const ApprovedTextAds: React.FC = () => {
   );
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this text ad?')) return;
+    if (!window.confirm('Are you sure you want to delete this text ad?')) return;
     
     try {
       const response = await adminApiService.deleteBanner(id);

@@ -116,6 +116,13 @@ import Currencies from './pages/Currencies';
 import Matrix from './pages/Matrix';
 import Payments from './pages/Payments';
 
+// New Admin Panel Pages
+import ManageRanks from './pages/Ranks/ManageRanks';
+import EmailCampaigns from './pages/EmailCampaigns/EmailCampaigns';
+import WhiteLabel from './pages/WhiteLabel/WhiteLabel';
+import CampaignAnalytics from './pages/EmailCampaigns/CampaignAnalytics';
+import ManageGamification from './pages/Gamification/ManageGamification';
+
 function App() {
   return (
     <AuthProvider>

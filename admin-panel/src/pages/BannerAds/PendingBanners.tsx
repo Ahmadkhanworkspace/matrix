@@ -58,7 +58,7 @@ const PendingBanners: React.FC = () => {
   };
 
   const handleReject = async (id: string) => {
-    if (!confirm('Are you sure you want to reject this banner?')) return;
+    if (!window.confirm('Are you sure you want to reject this banner?')) return;
     
     try {
       const response = await adminApiService.rejectBanner(id);

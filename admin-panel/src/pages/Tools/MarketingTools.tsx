@@ -229,7 +229,7 @@ const MarketingTools: React.FC = () => {
   };
 
   const handleDeleteCampaign = async (campaignId: string) => {
-    if (!confirm('Are you sure you want to delete this campaign?')) return;
+    if (!window.confirm('Are you sure you want to delete this campaign?')) return;
 
     try {
       setCampaigns(prev => prev.filter(campaign => campaign.id !== campaignId));

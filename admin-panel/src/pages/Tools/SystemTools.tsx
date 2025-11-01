@@ -276,7 +276,7 @@ const SystemTools: React.FC = () => {
   // Restart application
   const restartApplication = async () => {
     try {
-      if (!confirm('Are you sure you want to restart the application? This will cause temporary downtime.')) {
+      if (!window.confirm('Are you sure you want to restart the application? This will cause temporary downtime.')) {
         return;
       }
 

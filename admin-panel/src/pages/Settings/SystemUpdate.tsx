@@ -49,7 +49,7 @@ const SystemUpdate: React.FC = () => {
   };
 
   const handleInstallUpdate = async (version: string) => {
-    if (!confirm(`Are you sure you want to install version ${version}? This may require system restart.`)) {
+    if (!window.confirm(`Are you sure you want to install version ${version}? This may require system restart.`)) {
       return;
     }
 

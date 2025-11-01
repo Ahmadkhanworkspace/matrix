@@ -60,7 +60,7 @@ const ApprovedBanners: React.FC = () => {
   });
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this banner?')) return;
+    if (!window.confirm('Are you sure you want to delete this banner?')) return;
     
     try {
       const response = await adminApiService.deleteBanner(id);

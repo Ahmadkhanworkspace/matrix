@@ -50,7 +50,7 @@ const TestimonialsPending: React.FC = () => {
   };
 
   const handleReject = async (id: string) => {
-    if (!confirm('Are you sure you want to reject this testimonial?')) return;
+    if (!window.confirm('Are you sure you want to reject this testimonial?')) return;
     
     try {
       // This would call reject endpoint
