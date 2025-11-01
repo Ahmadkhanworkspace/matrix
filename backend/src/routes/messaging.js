@@ -742,7 +742,7 @@ router.post('/broadcast', authenticateAdmin, async (req, res) => {
         // Build query based on segments
         const where = {};
         
-        segments.forEach(segment => {
+        for (const segment of segments) {
           switch (segment.type) {
             case 'all':
               // All users
@@ -765,7 +765,7 @@ router.post('/broadcast', authenticateAdmin, async (req, res) => {
               targetUserIds.push(...rankUsers.map(u => u.userId));
               break;
           }
-        });
+        }
 
         if (Object.keys(where).length > 0 && targetUserIds.length === 0) {
           const users = await prisma.user.findMany({
