@@ -195,8 +195,16 @@ const LandingPage: React.FC = () => {
               <a href="#pricing" className="text-gray-600 hover:text-gray-900">Pricing</a>
               <a href="#testimonials" className="text-gray-600 hover:text-gray-900">Testimonials</a>
               <a href="#contact" className="text-gray-600 hover:text-gray-900">Contact</a>
-              <Link to="/login" className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
-                Login
+              <a 
+                href="https://userpanel-lac.vercel.app/login" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-gray-600 hover:text-gray-900"
+              >
+                Member Login
+              </a>
+              <Link to="/admin/dashboard" className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+                Admin Login
               </Link>
               <Link to="/register" className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-4 py-2 rounded-md hover:from-yellow-500 hover:to-orange-600">
                 Get Started
@@ -222,7 +230,15 @@ const LandingPage: React.FC = () => {
                 <a href="#pricing" className="block px-3 py-2 text-gray-600 hover:text-gray-900">Pricing</a>
                 <a href="#testimonials" className="block px-3 py-2 text-gray-600 hover:text-gray-900">Testimonials</a>
                 <a href="#contact" className="block px-3 py-2 text-gray-600 hover:text-gray-900">Contact</a>
-                <Link to="/login" className="block px-3 py-2 text-blue-600 hover:text-blue-700">Login</Link>
+                <a 
+                  href="https://userpanel-lac.vercel.app/login" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="block px-3 py-2 text-gray-600 hover:text-gray-900"
+                >
+                  Member Login
+                </a>
+                <Link to="/admin/dashboard" className="block px-3 py-2 text-blue-600 hover:text-blue-700">Admin Login</Link>
                 <Link to="/register" className="block px-3 py-2 text-orange-600 hover:text-orange-700">Get Started</Link>
               </div>
             </div>
@@ -246,17 +262,22 @@ const LandingPage: React.FC = () => {
                 Build your network, earn rewards, and achieve financial freedom with our advanced multi-level marketing system.
               </p>
               <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-                <Link
-                  to="/register"
+                <a
+                  href="https://userpanel-lac.vercel.app/login"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:from-yellow-500 hover:to-orange-600 transition-all duration-300 flex items-center justify-center"
                 >
-                  Start Your Journey
+                  Member Login
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </a>
+                <Link
+                  to="/register"
+                  className="border-2 border-white text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white hover:text-gray-900 transition-all duration-300 flex items-center justify-center"
+                >
+                  Join Now
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
-                <button className="border-2 border-white text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white hover:text-gray-900 transition-all duration-300 flex items-center justify-center">
-                  <Play className="mr-2 h-5 w-5" />
-                  Watch Demo
-                </button>
               </div>
             </div>
             <div className="relative">
@@ -460,15 +481,20 @@ const LandingPage: React.FC = () => {
             Join thousands of successful entrepreneurs who have already transformed their lives with Matrix MLM.
           </p>
           <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
+            <a
+              href="https://userpanel-lac.vercel.app/login"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:from-yellow-500 hover:to-orange-600 transition-all duration-300 text-center"
+            >
+              Member Login
+            </a>
             <Link
               to="/register"
-              className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:from-yellow-500 hover:to-orange-600 transition-all duration-300"
+              className="border-2 border-white text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white hover:text-gray-900 transition-all duration-300 text-center"
             >
               Start Free Trial
             </Link>
-            <button className="border-2 border-white text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white hover:text-gray-900 transition-all duration-300">
-              Schedule Demo
-            </button>
           </div>
         </div>
       </section>
@@ -509,9 +535,10 @@ const LandingPage: React.FC = () => {
             <div>
               <h3 className="text-lg font-semibold mb-4">Product</h3>
               <ul className="space-y-2">
-                <li><a href="#" className="text-gray-400 hover:text-white">Features</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-white">Pricing</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-white">Modules</a></li>
+                <li><a href="#features" className="text-gray-400 hover:text-white">Features</a></li>
+                <li><a href="#pricing" className="text-gray-400 hover:text-white">Pricing</a></li>
+                <li><a href="https://userpanel-lac.vercel.app/login" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white">Member Portal</a></li>
+                <li><Link to="/admin/dashboard" className="text-gray-400 hover:text-white">Admin Panel</Link></li>
                 <li><a href="#" className="text-gray-400 hover:text-white">API</a></li>
                 <li><a href="#" className="text-gray-400 hover:text-white">Documentation</a></li>
               </ul>

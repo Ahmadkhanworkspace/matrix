@@ -67,6 +67,7 @@ import {
 } from 'lucide-react';
 import { api } from '../api';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { useRealtime } from '../hooks/useRealtime';
 
 interface DashboardStats {
   memberStats: {
@@ -123,6 +124,25 @@ const Dashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Listen for real-time updates
+  useRealtime('user_updated', () => {
+    // Refresh dashboard when user is updated
+    console.log('User updated - refreshing dashboard...');
+    fetchDashboardData();
+  });
+
+  useRealtime('settings_updated', () => {
+    // Refresh dashboard when settings are updated
+    console.log('Settings updated - refreshing dashboard...');
+    fetchDashboardData();
+  });
+
+  useRealtime('payment_gateway_updated', () => {
+    // Refresh dashboard when payment gateway is updated
+    console.log('Payment gateway updated - refreshing dashboard...');
+    fetchDashboardData();
+  });
 
   const fetchDashboardData = async () => {
     try {
