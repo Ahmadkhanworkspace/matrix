@@ -177,7 +177,8 @@ router.post('/login', async (req, res) => {
     }
 
     // Normalize user data for response
-    const userData = USE_PRISMA && prisma() ? {
+    const prismaClient = USE_PRISMA ? prisma() : null;
+    const userData = USE_PRISMA && prismaClient ? {
       id: user.id,
       username: user.username,
       email: user.email,
