@@ -77,7 +77,16 @@ const PaymentGatewaySettings: React.FC = () => {
   const handleSave = async (gateway: string, silent = false) => {
     setSaving(gateway);
     try {
-      let credentials;
+      let credentials: {
+        apiKey?: string;
+        secretKey?: string;
+        privateKey?: string;
+        publicKey?: string;
+        merchantId?: string;
+        ipnSecret?: string;
+        isTestMode?: boolean;
+        enabled?: boolean;
+      } | undefined;
       
       if (gateway === 'coinpayments') {
         credentials = {
@@ -104,6 +113,12 @@ const PaymentGatewaySettings: React.FC = () => {
           isTestMode: binance.isTestMode,
           enabled: binance.enabled
         };
+      } else {
+        throw new Error(`Unsupported gateway: ${gateway}`);
+      }
+
+      if (!credentials) {
+        throw new Error(`Failed to prepare credentials for ${gateway}`);
       }
 
       await adminApiService.savePaymentGatewayCredentials(gateway, credentials);
