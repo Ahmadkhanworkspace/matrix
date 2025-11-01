@@ -9,6 +9,9 @@ const ADMIN_PANEL_URL = 'https://admin-panel-phi-hazel.vercel.app';
 const USER_PANEL_URL = 'https://userpanel-lac.vercel.app';
 const BACKEND_API_URL = 'https://considerate-adventure-production.up.railway.app/api';
 
+// Try alternative URL if the above doesn't work
+const BACKEND_API_URL_ALT = process.env.BACKEND_URL || BACKEND_API_URL;
+
 // Test credentials
 const TEST_CREDENTIALS = {
   admin: {
@@ -66,8 +69,17 @@ function makeRequest(url, options = {}) {
 async function testBackendLogin(credentials) {
   log(`\n🔐 Testing Backend API Login: ${credentials.username}`, 'cyan');
   
-  try {
-    const response = await makeRequest(`${BACKEND_API_URL}/auth/login`, {
+  // Try multiple URL variations
+  const urlVariations = [
+    `${BACKEND_API_URL}/auth/login`,
+    `${BACKEND_API_URL.replace('/api', '')}/api/auth/login`,
+    `https://considerate-adventure-production.up.railway.app/api/auth/login`
+  ];
+  
+  for (const apiUrl of urlVariations) {
+    try {
+      log(`  Testing: ${apiUrl}`, 'blue');
+      const response = await makeRequest(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -75,26 +87,44 @@ async function testBackendLogin(credentials) {
       body: JSON.stringify(credentials)
     });
     
-    if (response.status === 200) {
-      const data = JSON.parse(response.data);
-      if (data.success && data.data?.token) {
-        log(`  ✅ Backend login successful`, 'green');
-        log(`  Token: ${data.data.token.substring(0, 20)}...`, 'blue');
-        return { success: true, token: data.data.token, user: data.data.user };
+      if (response.status === 200) {
+        try {
+          const data = JSON.parse(response.data);
+          if (data.success && data.data?.token) {
+            log(`  ✅ Backend login successful`, 'green');
+            log(`  Token: ${data.data.token.substring(0, 20)}...`, 'blue');
+            return { success: true, token: data.data.token, user: data.data.user };
+          } else {
+            log(`  ❌ Backend login failed: ${data.error || 'Unknown error'}`, 'red');
+            return { success: false, error: data.error };
+          }
+        } catch (parseError) {
+          log(`  ⚠️  Response is not JSON (may be HTML): ${response.data.substring(0, 100)}`, 'yellow');
+          continue; // Try next URL
+        }
+      } else if (response.status === 404) {
+        log(`  ❌ Route not found (404) - trying next URL...`, 'yellow');
+        continue; // Try next URL variation
       } else {
-        log(`  ❌ Backend login failed: ${data.error || 'Unknown error'}`, 'red');
-        return { success: false, error: data.error };
+        log(`  ❌ Backend login failed: HTTP ${response.status}`, 'red');
+        try {
+          const errorData = JSON.parse(response.data);
+          log(`  Error: ${errorData.error || 'Unknown error'}`, 'red');
+          return { success: false, error: errorData.error };
+        } catch {
+          log(`  Error response: ${response.data.substring(0, 100)}`, 'red');
+          return { success: false, error: `HTTP ${response.status}` };
+        }
       }
-    } else {
-      log(`  ❌ Backend login failed: HTTP ${response.status}`, 'red');
-      const errorData = JSON.parse(response.data);
-      log(`  Error: ${errorData.error || 'Unknown error'}`, 'red');
-      return { success: false, error: errorData.error };
+    } catch (error) {
+      log(`  ❌ Error with URL: ${error.message}`, 'red');
+      continue; // Try next URL
     }
-  } catch (error) {
-    log(`  ❌ Backend login error: ${error.message}`, 'red');
-    return { success: false, error: error.message };
   }
+  
+  // If we get here, all URL variations failed
+  log(`  ❌ All URL variations failed`, 'red');
+  return { success: false, error: 'All login attempts failed' };
 }
 
 async function testAdminPanelAccess() {
@@ -199,10 +229,47 @@ async function testUserPanelLogin(credentials) {
   }
 }
 
+async function testBackendHealth() {
+  log(`\n🏥 Testing Backend Health`, 'cyan');
+  
+  try {
+    const healthUrl = BACKEND_API_URL.replace('/api', '');
+    log(`  Checking: ${healthUrl}/api/health`, 'blue');
+    
+    const response = await makeRequest(`${healthUrl}/api/health`, {
+      method: 'GET'
+    });
+    
+    if (response.status === 200) {
+      log(`  ✅ Backend is online (HTTP ${response.status})`, 'green');
+      return true;
+    } else {
+      log(`  ⚠️  Backend returned HTTP ${response.status}`, 'yellow');
+      return false;
+    }
+  } catch (error) {
+    log(`  ❌ Backend is offline or unreachable: ${error.message}`, 'red');
+    log(`  ⚠️  Backend may be down or URL is incorrect`, 'yellow');
+    return false;
+  }
+}
+
 async function runAllTests() {
   log('\n' + '='.repeat(60), 'blue');
   log('🚀 Authentication Test Suite', 'cyan');
   log('='.repeat(60), 'blue');
+  
+  // Test 0: Backend Health Check
+  log('\n📋 Test 0: Backend Health Check', 'yellow');
+  const backendOnline = await testBackendHealth();
+  
+  if (!backendOnline) {
+    log('\n⚠️  Backend appears to be offline!', 'red');
+    log('   Cannot test authentication without backend.', 'red');
+    log('   Check Railway deployment status.', 'yellow');
+    log('\n' + '='.repeat(60), 'blue');
+    return;
+  }
   
   // Test 1: Backend API Login
   log('\n📋 Test 1: Backend API Authentication', 'yellow');
