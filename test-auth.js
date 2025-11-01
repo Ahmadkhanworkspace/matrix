@@ -110,9 +110,16 @@ async function testBackendLogin(credentials) {
         try {
           const errorData = JSON.parse(response.data);
           log(`  Error: ${errorData.error || 'Unknown error'}`, 'red');
+          if (errorData.message) {
+            log(`  Message: ${errorData.message}`, 'yellow');
+          }
+          if (errorData.stack) {
+            log(`  Stack: ${errorData.stack.substring(0, 200)}`, 'yellow');
+          }
+          log(`  Full response: ${JSON.stringify(errorData, null, 2)}`, 'yellow');
           return { success: false, error: errorData.error };
         } catch {
-          log(`  Error response: ${response.data.substring(0, 100)}`, 'red');
+          log(`  Error response: ${response.data.substring(0, 500)}`, 'red');
           return { success: false, error: `HTTP ${response.status}` };
         }
       }

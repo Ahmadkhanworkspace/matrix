@@ -215,10 +215,12 @@ router.post('/login', async (req, res) => {
     });
   } catch (error) {
     console.error('Login error:', error);
+    console.error('Login error stack:', error.stack);
     res.status(500).json({
       success: false,
       error: 'Login failed',
-      message: process.env.NODE_ENV === 'development' ? error.message : 'Login failed'
+      message: error.message || 'Login failed',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
