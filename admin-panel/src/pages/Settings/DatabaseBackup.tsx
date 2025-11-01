@@ -55,7 +55,7 @@ const DatabaseBackup: React.FC = () => {
 
   const handleDownload = (backupId: string) => {
     // This would trigger a download of the backup file
-    toast.info('Backup download initiated');
+    toast('Backup download initiated', { icon: 'ℹ️' });
   };
 
   const getStatusColor = (status: string) => {

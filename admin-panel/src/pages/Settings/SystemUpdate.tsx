@@ -54,7 +54,7 @@ const SystemUpdate: React.FC = () => {
     }
 
     try {
-      toast.info('Installing update...');
+      toast('Installing update...', { icon: 'ℹ️' });
       // This would call a backend endpoint to install the update
       toast.success('Update installed successfully');
     } catch (error: any) {

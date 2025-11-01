@@ -71,7 +71,7 @@ const SearchMembers: React.FC = () => {
       if (response.success) {
         setResults(response.data?.users || response.data || []);
         if (response.data?.users?.length === 0) {
-          toast.info('No members found');
+          toast('No members found', { icon: 'ℹ️' });
         }
       }
     } catch (error: any) {
