@@ -1,5 +1,5 @@
 const mysql = require('mysql2/promise');
-const db = require('../config/database');
+const { prisma, USE_PRISMA, queryOne } = require('../config/databaseHybrid');
 const crypto = require('crypto');
 
 class PaymentService {
@@ -15,9 +15,19 @@ class PaymentService {
   async initializeGateways() {
     try {
       // Get payment gateway settings from database
-      const [settings] = await db.execute('SELECT * FROM adminsettings LIMIT 1');
+      let settings;
+      if (USE_PRISMA) {
+        // For now, skip gateway initialization with Prisma as SystemConfig may not exist
+        // TODO: Implement Prisma-based system config
+        console.log('⚠️  Payment gateway initialization skipped - Prisma mode active');
+        return;
+      } else {
+        const db = require('../config/database');
+        const [result] = await db.execute('SELECT * FROM adminsettings LIMIT 1');
+        settings = result;
+      }
       
-      if (settings[0]) {
+      if (settings && settings[0]) {
         const config = settings[0];
         
         // Initialize CoinPayments

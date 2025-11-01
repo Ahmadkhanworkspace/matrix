@@ -618,7 +618,7 @@ router.get('/levels', authenticateToken, async (req, res) => {
       res.json({
         success: true,
         data: {
-          levels: configs.map((c: any) => ({
+          levels: configs.map((c) => ({
             id: c.id,
             level: c.id,
             name: c.name || `Level ${c.id}`,

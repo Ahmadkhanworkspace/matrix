@@ -1,5 +1,5 @@
 const mysql = require('mysql2/promise');
-const db = require('../config/database');
+const { prisma, USE_PRISMA } = require('../config/databaseHybrid');
 const nodemailer = require('nodemailer');
 
 class EmailService {
@@ -12,9 +12,19 @@ class EmailService {
   async initializeTransporter() {
     try {
       // Get email settings from database
-      const [settings] = await db.execute('SELECT * FROM adminsettings LIMIT 1');
+      let settings;
+      if (USE_PRISMA) {
+        // For now, skip email transporter initialization with Prisma
+        // TODO: Implement Prisma-based system config
+        console.log('⚠️  Email transporter initialization skipped - Prisma mode active');
+        return;
+      } else {
+        const db = require('../config/database');
+        const [result] = await db.execute('SELECT * FROM adminsettings LIMIT 1');
+        settings = result;
+      }
       
-      if (settings[0]) {
+      if (settings && settings[0]) {
         const config = settings[0];
         
         if (config.mailertype === 1 && config.mailserver) {
