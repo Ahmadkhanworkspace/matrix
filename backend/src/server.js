@@ -4,6 +4,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const { Server } = require('socket.io');
 const db = require('./config/database');
+const supabaseConfig = require('./config/supabase');
 
 // Load environment variables
 dotenv.config();
@@ -15,11 +16,13 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: [
-      'https://admin-panel-phi-hazel.vercel.app',  // Admin panel
-      process.env.FRONTEND_URL || 'http://localhost:3000',  // User panel
-      process.env.ADMIN_URL || 'http://localhost:3001',
+      'https://admin-panel-phi-hazel.vercel.app',  // Admin panel (deployed)
+      'https://userpanel-lac.vercel.app',  // User panel (deployed)
+      process.env.FRONTEND_URL || 'http://localhost:3000',  // User panel (local)
+      process.env.ADMIN_URL || 'http://localhost:3001',  // Admin panel (local)
       'http://localhost:3000',
-      'http://localhost:3001'
+      'http://localhost:3001',
+      'http://localhost:5000'
     ],
     methods: ["GET", "POST"],
     credentials: true
@@ -36,7 +39,21 @@ io.on('connection', (socket) => {
   // Join user room
   socket.on('join_user', (userId) => {
     socket.join(`user:${userId}`);
+    socket.userId = userId;
     console.log(`User ${userId} joined their room`);
+  });
+
+  // Join admin room
+  socket.on('join_admin', () => {
+    socket.join('admin');
+    socket.isAdmin = true;
+    console.log(`Admin connected: ${socket.id}`);
+  });
+
+  // Join all users room (for broadcasting)
+  socket.on('join_all', () => {
+    socket.join('all_users');
+    console.log(`Socket ${socket.id} joined all users room`);
   });
 
   // Join conversation room
@@ -65,6 +82,22 @@ io.on('connection', (socket) => {
     console.log('User disconnected:', socket.id);
   });
 });
+
+// Helper function to broadcast admin updates
+function broadcastAdminUpdate(event, data) {
+  io.emit('admin_update', { event, data, timestamp: new Date() });
+  console.log(`Broadcasting admin update: ${event}`);
+}
+
+// Helper function to notify specific user
+function notifyUser(userId, event, data) {
+  io.to(`user:${userId}`).emit('user_notification', { event, data, timestamp: new Date() });
+  console.log(`Notifying user ${userId}: ${event}`);
+}
+
+// Make helpers available to routes
+app.set('broadcastAdminUpdate', broadcastAdminUpdate);
+app.set('notifyUser', notifyUser);
 
 // Middleware
 // CORS configuration for Vercel deployments
@@ -108,6 +141,7 @@ const gamificationRoutes = require('./routes/gamification');
 const emailCampaignsRoutes = require('./routes/emailCampaigns');
 const socialRoutes = require('./routes/social');
 const whiteLabelRoutes = require('./routes/whiteLabel');
+const supabaseRoutes = require('./routes/supabase');
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -126,6 +160,7 @@ app.use('/api/gamification', gamificationRoutes);
 app.use('/api/email-campaigns', emailCampaignsRoutes);
 app.use('/api/social', socialRoutes);
 app.use('/api/white-label', whiteLabelRoutes);
+app.use('/api/supabase', supabaseRoutes);
 
 // Health check endpoint
 app.get('/api/health', async (req, res) => {
@@ -191,10 +226,32 @@ app.get('/api/system/status', async (req, res) => {
     const systemStats = await CronService.getSystemStats();
     const gatewayStatus = PaymentService.getGatewayStatus();
     
+    // Check database type
+    const USE_PRISMA = process.env.USE_PRISMA === 'true' || (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('supabase'));
+    const dbType = USE_PRISMA ? 'Supabase (PostgreSQL via Prisma)' : 'MySQL';
+    
+    // Test Supabase connection if configured
+    let supabaseStatus = null;
+    if (process.env.SUPABASE_URL) {
+      try {
+        const supabase = supabaseConfig.getSupabase();
+        if (supabase) {
+          const { error } = await supabase.from('users').select('id').limit(1);
+          supabaseStatus = error ? { connected: false, error: error.message } : { connected: true };
+        }
+      } catch (err) {
+        supabaseStatus = { connected: false, error: err.message };
+      }
+    }
+    
     res.json({
       cronJobs: jobStatus,
       systemStats,
       paymentGateways: gatewayStatus,
+      database: {
+        type: dbType,
+        supabase: supabaseStatus
+      },
       lastUpdate: new Date()
     });
   } catch (error) {
@@ -206,6 +263,35 @@ app.get('/api/system/status', async (req, res) => {
 async function initializeSystem() {
   try {
     console.log('Initializing EarnYourDollar system...');
+    
+    // Initialize database connection
+    const dbConnected = await db.testConnection();
+    if (!dbConnected) {
+      console.warn('⚠️  MySQL connection failed. Will try Supabase/Prisma.');
+    }
+    
+    // Initialize Supabase if configured
+    if (process.env.SUPABASE_URL) {
+      const supabase = supabaseConfig.initSupabase();
+      if (supabase) {
+        const supabaseTest = await supabaseConfig.testSupabaseConnection();
+        console.log(`Supabase: ${supabaseTest.connected ? '✅ Connected' : '❌ Not connected'}`);
+      }
+    }
+    
+    // Initialize Prisma if configured
+    const USE_PRISMA = process.env.USE_PRISMA === 'true' || (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('supabase'));
+    if (USE_PRISMA && process.env.DATABASE_URL) {
+      try {
+        const { PrismaClient } = require('@prisma/client');
+        const prisma = new PrismaClient();
+        await prisma.$connect();
+        console.log('✅ Prisma/PostgreSQL connected');
+        await prisma.$disconnect();
+      } catch (prismaError) {
+        console.warn('⚠️  Prisma connection failed:', prismaError.message);
+      }
+    }
     
     // Initialize cron jobs
     await CronService.initialize();

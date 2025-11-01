@@ -410,6 +410,13 @@ router.post('/payment-gateways/credentials', authenticateAdmin, async (req, res)
       }
     }
 
+    // Broadcast update to all clients
+    const io = req.app.get('io');
+    const broadcastAdminUpdate = req.app.get('broadcastAdminUpdate');
+    if (io && broadcastAdminUpdate) {
+      broadcastAdminUpdate('payment_gateway_updated', { gateway, enabled: credentials.enabled || false });
+    }
+
     // Re-initialize gateway service to reload config
     const PaymentGatewayService = require('../services/PaymentGatewayService');
     await PaymentGatewayService.initializeGateways();

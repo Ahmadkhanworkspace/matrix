@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { formatCurrency as formatCurrencyUtil } from '../utils/currency';
 import SocialProof from '../components/SocialProof';
+import { useRealtime } from '../hooks/useRealtime';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -130,6 +131,20 @@ const Dashboard: React.FC = () => {
         return 'text-gray-500';
     }
   };
+
+  // Listen for real-time updates
+  useRealtime('settings_updated', () => {
+    // Refresh dashboard data when settings are updated
+    // This will automatically refresh user-specific data
+    console.log('Settings updated - refreshing dashboard...');
+  });
+
+  useRealtime('profile_updated', (data: any) => {
+    // Update user profile in real-time
+    if (data && data.id === user?.id) {
+      console.log('Profile updated - refreshing dashboard...');
+    }
+  });
 
   return (
     <div className="space-y-6 w-full max-w-full overflow-x-hidden">

@@ -655,6 +655,13 @@ router.post('/admin/ranks', authenticateAdmin, async (req, res) => {
 
       await prisma.$disconnect();
 
+      // Broadcast rank created
+      const io = req.app.get('io');
+      const broadcastAdminUpdate = req.app.get('broadcastAdminUpdate');
+      if (io && broadcastAdminUpdate) {
+        broadcastAdminUpdate('rank_created', { id: rank.id, name: rank.name, level: rank.level });
+      }
+
       res.json({
         success: true,
         message: 'Rank created successfully',
@@ -697,6 +704,13 @@ router.put('/admin/ranks/:id', authenticateAdmin, async (req, res) => {
       });
 
       await prisma.$disconnect();
+
+      // Broadcast rank updated
+      const io = req.app.get('io');
+      const broadcastAdminUpdate = req.app.get('broadcastAdminUpdate');
+      if (io && broadcastAdminUpdate) {
+        broadcastAdminUpdate('rank_updated', { id: rank.id, name: rank.name, level: rank.level });
+      }
 
       res.json({
         success: true,

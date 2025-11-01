@@ -194,6 +194,13 @@ router.put('/configs/:id', authenticateToken, async (req, res) => {
       [name, levels, width, fee, matrix_type, payout_type, spillover_enabled, reentry_enabled, email_notifications, status, id]
     );
 
+    // Broadcast update
+    const io = req.app.get('io');
+    const broadcastAdminUpdate = req.app.get('broadcastAdminUpdate');
+    if (io && broadcastAdminUpdate) {
+      broadcastAdminUpdate('matrix_config_updated', { id, name, levels, width, fee });
+    }
+
     res.json({
       success: true,
       message: 'Matrix configuration updated successfully'
@@ -806,6 +813,18 @@ router.post('/advanced/positions/:id/swap', authenticateToken, async (req, res) 
       ]);
 
       await prisma.$disconnect();
+
+      // Broadcast update
+      const io = req.app.get('io');
+      const notifyUser = req.app.get('notifyUser');
+      const broadcastAdminUpdate = req.app.get('broadcastAdminUpdate');
+      if (io && notifyUser) {
+        notifyUser(sourceUserId, 'matrix_position_swapped', { sourcePositionId: id, targetPositionId });
+        notifyUser(targetUserId, 'matrix_position_swapped', { sourcePositionId: id, targetPositionId });
+      }
+      if (io && broadcastAdminUpdate) {
+        broadcastAdminUpdate('matrix_position_updated', { sourcePositionId: id, targetPositionId });
+      }
 
       res.json({
         success: true,

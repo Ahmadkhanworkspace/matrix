@@ -15,23 +15,23 @@ class CronService {
   async initialize() {
     console.log('Initializing cron jobs...');
     
-    // Matrix processing job - runs every hour
-    this.scheduleJob('matrix-processing', '0 * * * *', async () => {
-      await this.processMatrixQueue();
-    });
-    
-    // Payment processing job - runs every 15 minutes
-    this.scheduleJob('payment-processing', '*/15 * * * *', async () => {
+    // Payment processing job - runs every minute
+    this.scheduleJob('payment-processing', '* * * * *', async () => {
       await this.processPendingPayments();
     });
     
-    // Withdrawal processing job - runs every 30 minutes
-    this.scheduleJob('withdrawal-processing', '*/30 * * * *', async () => {
+    // Matrix processing job - runs every 5 minutes
+    this.scheduleJob('matrix-processing', '*/5 * * * *', async () => {
+      await this.processMatrixQueue();
+    });
+    
+    // Withdrawal processing job - runs every 2 minutes
+    this.scheduleJob('withdrawal-processing', '*/2 * * * *', async () => {
       await this.processPendingWithdrawals();
     });
     
-    // Email queue processing job - runs every 5 minutes
-    this.scheduleJob('email-processing', '*/5 * * * *', async () => {
+    // Email queue processing job - runs every 2 minutes
+    this.scheduleJob('email-processing', '*/2 * * * *', async () => {
       await this.processEmailQueue();
     });
     

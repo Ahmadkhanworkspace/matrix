@@ -197,6 +197,18 @@ router.put('/:id', authenticateToken, async (req, res) => {
       [first_name, last_name, phone, status, membership_level, id]
     );
 
+    // Broadcast update to specific user and all admins
+    const io = req.app.get('io');
+    const notifyUser = req.app.get('notifyUser');
+    const broadcastAdminUpdate = req.app.get('broadcastAdminUpdate');
+    
+    if (io && notifyUser) {
+      notifyUser(id, 'profile_updated', { id, first_name, last_name, phone, status, membership_level });
+    }
+    if (io && broadcastAdminUpdate) {
+      broadcastAdminUpdate('user_updated', { id, first_name, last_name, phone, status, membership_level });
+    }
+
     res.json({
       success: true,
       message: 'User updated successfully'

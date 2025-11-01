@@ -320,6 +320,17 @@ router.put('/transactions/:id/approve', authenticateToken, async (req, res) => {
       ['completed', id]
     );
 
+    // Broadcast transaction update
+    const io = req.app.get('io');
+    const notifyUser = req.app.get('notifyUser');
+    const broadcastAdminUpdate = req.app.get('broadcastAdminUpdate');
+    if (io && notifyUser && transaction.type === 'withdrawal') {
+      notifyUser(transaction.user_id, 'withdrawal_approved', { transactionId: id, amount: transaction.amount });
+    }
+    if (io && broadcastAdminUpdate) {
+      broadcastAdminUpdate('transaction_updated', { transactionId: id, type: transaction.type, status: 'completed' });
+    }
+
     // If it's a deposit, update user balance
     if (transaction.type === 'deposit') {
       await query(

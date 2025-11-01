@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import ConnectionStatus from './ConnectionStatus';
 import { 
   LayoutDashboard, 
   User, 
@@ -98,10 +99,11 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 {user?.first_name?.charAt(0) || user?.username?.charAt(0) || 'U'}
               </span>
             </div>
-            <div className="ml-3">
+            <div className="ml-3 flex-1">
               <p className="text-gray-900 font-medium">{user?.username}</p>
               <p className="text-gray-600 text-sm">{user?.email}</p>
             </div>
+            <ConnectionStatus />
           </div>
           <div className="mt-3 flex items-center">
             <span className={`px-2 py-1 rounded-full text-xs font-medium ${

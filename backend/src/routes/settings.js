@@ -121,6 +121,13 @@ router.put('/:key', authenticateToken, async (req, res) => {
       );
     }
 
+    // Broadcast update to all clients
+    const io = req.app.get('io');
+    const broadcastAdminUpdate = req.app.get('broadcastAdminUpdate');
+    if (io && broadcastAdminUpdate) {
+      broadcastAdminUpdate('settings_updated', { key, value, description });
+    }
+
     res.json({
       success: true,
       message: 'Setting updated successfully'

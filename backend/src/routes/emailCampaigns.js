@@ -296,6 +296,13 @@ router.post('/campaigns/:id/send', authenticateAdmin, async (req, res) => {
 
       await prisma.$disconnect();
 
+      // Broadcast campaign sent
+      const io = req.app.get('io');
+      const broadcastAdminUpdate = req.app.get('broadcastAdminUpdate');
+      if (io && broadcastAdminUpdate) {
+        broadcastAdminUpdate('email_campaign_sent', { campaignId: id, sentCount, totalRecipients: recipients.length });
+      }
+
       res.json({
         success: true,
         message: `Campaign sent to ${sentCount} recipients`,

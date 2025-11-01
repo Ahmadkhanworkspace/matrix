@@ -183,6 +183,125 @@ class EmailService {
     }
   }
 
+  // Send joining/welcome email
+  async sendJoiningEmail(username, email, firstName = '', sponsorUsername = '') {
+    const subject = 'Welcome to Matrix MLM - Get Started Today!';
+    const name = firstName || username;
+    const message = `
+      <h2>Welcome ${name}!</h2>
+      <p>Thank you for joining Matrix MLM! We're excited to have you as part of our community.</p>
+      ${sponsorUsername ? `<p>Your sponsor: <strong>${sponsorUsername}</strong></p>` : ''}
+      <p>Your account has been successfully created. Here's what you can do next:</p>
+      <ul>
+        <li>Complete your profile setup</li>
+        <li>Purchase your first matrix position</li>
+        <li>Start building your network and earning commissions</li>
+        <li>Invite friends and grow your team</li>
+      </ul>
+      <p>If you have any questions, please don't hesitate to contact our support team.</p>
+      <p>Welcome aboard and best of luck on your journey to financial freedom!</p>
+      <p><strong>The Matrix MLM Team</strong></p>
+    `;
+    
+    try {
+      await this.sendEmailToAddress(email, subject, message, 2);
+    } catch (error) {
+      // Fallback to username if email fails
+      await this.sendEmail(username, subject, message, 2);
+    }
+  }
+
+  // Send purchase position email
+  async sendPurchaseEmail(username, email, amount, currency, matrixLevel, positionId) {
+    const subject = 'Matrix Position Purchased Successfully!';
+    const message = `
+      <h2>Position Purchase Confirmed!</h2>
+      <p>Congratulations! Your matrix position has been successfully purchased.</p>
+      <div style="background: #f0f0f0; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <p><strong>Position Details:</strong></p>
+        <ul>
+          <li>Position ID: <strong>${positionId}</strong></li>
+          <li>Matrix Level: <strong>${matrixLevel}</strong></li>
+          <li>Amount Paid: <strong>${amount} ${currency}</strong></li>
+        </ul>
+      </div>
+      <p>Your position is now active and you can start earning commissions as your downline fills up.</p>
+      <p><strong>Next Steps:</strong></p>
+      <ul>
+        <li>Invite members to fill your matrix</li>
+        <li>Track your position progress in your dashboard</li>
+        <li>Earn bonuses as your team grows</li>
+      </ul>
+      <p>Thank you for your investment! We're here to support your success.</p>
+      <p><strong>The Matrix MLM Team</strong></p>
+    `;
+    
+    try {
+      await this.sendEmailToAddress(email, subject, message, 2);
+    } catch (error) {
+      await this.sendEmail(username, subject, message, 2);
+    }
+  }
+
+  // Send forgot password email
+  async sendForgotPasswordEmail(username, email, resetToken, resetLink) {
+    const subject = 'Password Reset Request - Matrix MLM';
+    const message = `
+      <h2>Password Reset Request</h2>
+      <p>Hello ${username},</p>
+      <p>We received a request to reset your password for your Matrix MLM account.</p>
+      <p>Click the button below to reset your password:</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${resetLink}" style="display: inline-block; padding: 12px 30px; background: #667eea; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Reset Password</a>
+      </div>
+      <p>Or copy and paste this link into your browser:</p>
+      <p style="word-break: break-all; color: #667eea;">${resetLink}</p>
+      <p><strong>This link will expire in 1 hour.</strong></p>
+      <p>If you didn't request this password reset, please ignore this email and your password will remain unchanged.</p>
+      <p>For security reasons, never share this link with anyone.</p>
+      <p><strong>The Matrix MLM Team</strong></p>
+    `;
+    
+    try {
+      await this.sendEmailToAddress(email, subject, message, 2);
+    } catch (error) {
+      await this.sendEmail(username, subject, message, 2);
+    }
+  }
+
+  // Helper method to send email directly to address
+  async sendEmailToAddress(emailAddress, subject, message, format = 2) {
+    try {
+      // Get site settings
+      const [settings] = await db.execute('SELECT * FROM adminsettings LIMIT 1');
+      const siteConfig = settings[0] || {};
+      
+      // Prepare email content
+      const emailContent = format === 2 ? this.createHTMLEmail(message, siteConfig) : message;
+      
+      // Send email
+      if (this.transporter) {
+        await this.transporter.sendMail({
+          from: siteConfig.Email || 'noreply@matrixmlm.com',
+          to: emailAddress,
+          subject: subject,
+          text: format === 1 ? message : undefined,
+          html: format === 2 ? emailContent : undefined
+        });
+        
+        console.log(`Email sent to ${emailAddress}`);
+        return { success: true };
+      } else {
+        console.log(`Email would be sent to ${emailAddress}: ${subject}`);
+        return { success: true, simulated: true };
+      }
+      
+    } catch (error) {
+      console.error('Error sending email:', error);
+      throw error;
+    }
+  }
+
   // Send payment confirmation email
   async sendPaymentConfirmationEmail(username, amount, currency) {
     const subject = 'Payment Confirmed - EarnYourDollar';

@@ -2,6 +2,8 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CurrencyProvider } from './contexts/CurrencyContext';
+import { RealtimeProvider } from './contexts/RealtimeContext';
+import RealtimeWrapper from './components/RealtimeWrapper';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -35,8 +37,10 @@ const App: React.FC = () => {
   return (
     <AuthProvider>
       <CurrencyProvider>
-        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <Routes>
+        <RealtimeProvider>
+          <RealtimeWrapper>
+            <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+              <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/" element={
@@ -186,8 +190,10 @@ const App: React.FC = () => {
                 </Layout>
               </PrivateRoute>
             } />
-          </Routes>
-        </Router>
+              </Routes>
+            </Router>
+          </RealtimeWrapper>
+        </RealtimeProvider>
       </CurrencyProvider>
     </AuthProvider>
   );

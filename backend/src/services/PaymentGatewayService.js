@@ -561,6 +561,27 @@ class PaymentGatewayService {
       const username = transaction.username || transaction.user?.username;
       const userId = transaction.userId || transaction.userId || transaction.user?.id;
 
+      // Get user email for purchase notification
+      let userEmail = null;
+      let user = null;
+      try {
+        const { PrismaClient } = require('@prisma/client');
+        const prisma = new PrismaClient();
+        user = await prisma.user.findUnique({ 
+          where: { id: userId },
+          select: { email: true }
+        });
+        userEmail = user?.email;
+        await prisma.$disconnect();
+      } catch {
+        const [users] = await db.execute(
+          'SELECT Email, email FROM users WHERE id = ? OR username = ? LIMIT 1',
+          [userId, username]
+        );
+        userEmail = users[0]?.Email || users[0]?.email;
+        user = users[0];
+      }
+
       // Update transaction status
       try {
         const { PrismaClient } = require('@prisma/client');
@@ -631,6 +652,24 @@ class PaymentGatewayService {
              VALUES (?, ?, NOW(), ?, ?, 0)`,
             [username, matrixId, transaction.etype || 1, transaction.sponsor || null]
           );
+        }
+
+        // Send purchase position email
+        if (userEmail) {
+          try {
+            const EmailService = require('./EmailService');
+            await EmailService.sendPurchaseEmail(
+              username, 
+              userEmail, 
+              amount, 
+              currency, 
+              matrixId, 
+              transactionId
+            );
+          } catch (emailError) {
+            console.error('Error sending purchase email:', emailError);
+            // Don't fail deposit approval if email fails
+          }
         }
       }
 

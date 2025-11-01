@@ -41,6 +41,15 @@ router.post('/register', async (req, res) => {
       [username, email, passwordHash, first_name, last_name, phone, sponsor]
     );
 
+    // Send joining/welcome email
+    try {
+      const EmailService = require('../services/EmailService');
+      await EmailService.sendJoiningEmail(username, email, first_name, sponsor);
+    } catch (emailError) {
+      console.error('Error sending welcome email:', emailError);
+      // Don't fail registration if email fails
+    }
+
     res.status(201).json({
       success: true,
       message: 'User registered successfully',
@@ -132,6 +141,125 @@ router.post('/login', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Login failed'
+    });
+  }
+});
+
+// Forgot password - Request reset
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email is required'
+      });
+    }
+
+    // Find user by email
+    const user = await queryOne(
+      'SELECT id, username, email FROM users WHERE email = ?',
+      [email]
+    );
+
+    // Always return success to prevent email enumeration
+    if (!user) {
+      return res.json({
+        success: true,
+        message: 'If an account exists with this email, a password reset link has been sent.'
+      });
+    }
+
+    // Generate reset token
+    const crypto = require('crypto');
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour from now
+
+    // Store reset token in database (you may need to add password_reset_token and password_reset_expiry columns)
+    await query(
+      'UPDATE users SET password_reset_token = ?, password_reset_expiry = ? WHERE id = ?',
+      [resetToken, resetTokenExpiry, user.id]
+    );
+
+    // Create reset link
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const resetLink = `${frontendUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(user.email)}`;
+
+    // Send forgot password email
+    try {
+      const EmailService = require('../services/EmailService');
+      await EmailService.sendForgotPasswordEmail(user.username, user.email, resetToken, resetLink);
+    } catch (emailError) {
+      console.error('Error sending forgot password email:', emailError);
+      // Don't fail the request if email fails
+    }
+
+    res.json({
+      success: true,
+      message: 'If an account exists with this email, a password reset link has been sent.'
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to process password reset request'
+    });
+  }
+});
+
+// Reset password - Update password with token
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, email, newPassword } = req.body;
+
+    if (!token || !email || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        error: 'Token, email, and new password are required'
+      });
+    }
+
+    // Find user by email and token
+    const user = await queryOne(
+      'SELECT id, password_reset_token, password_reset_expiry FROM users WHERE email = ? AND password_reset_token = ?',
+      [email, token]
+    );
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid or expired reset token'
+      });
+    }
+
+    // Check if token is expired
+    if (user.password_reset_expiry < new Date()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Reset token has expired. Please request a new one.'
+      });
+    }
+
+    // Hash new password
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update password and clear reset token
+    await query(
+      'UPDATE users SET password_hash = ?, password_reset_token = NULL, password_reset_expiry = NULL WHERE id = ?',
+      [passwordHash, user.id]
+    );
+
+    res.json({
+      success: true,
+      message: 'Password reset successfully. You can now login with your new password.'
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to reset password'
     });
   }
 });

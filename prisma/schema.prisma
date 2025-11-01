@@ -39,6 +39,10 @@ model User {
   // Wallet address for withdrawals
   tronWallet      String?  // TronWallet for crypto withdrawals
   
+  // Password reset fields
+  passwordResetToken String?  @map("password_reset_token")
+  passwordResetExpiry DateTime? @map("password_reset_expiry")
+  
   // Timestamps
   joinDate        DateTime @default(now())
   lastLogin       DateTime?
