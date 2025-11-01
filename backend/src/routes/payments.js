@@ -399,59 +399,160 @@ router.put('/transactions/:id/reject', authenticateToken, async (req, res) => {
 // Get payment statistics for dashboard
 router.get('/stats', authenticateToken, async (req, res) => {
   try {
-    // Get total earnings (sum of all completed transactions)
-    const totalEarningsResult = await queryOne(
-      'SELECT SUM(amount) as total FROM transactions WHERE status = "completed" AND type = "earning"'
-    );
-    const totalEarnings = totalEarningsResult.total || 0;
+    const USE_PRISMA = process.env.USE_PRISMA === 'true' || (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('supabase'));
+    
+    if (USE_PRISMA) {
+      // Use Prisma for Supabase/PostgreSQL
+      try {
+        const { PrismaClient } = require('@prisma/client');
+        const prisma = new PrismaClient();
 
-    // Get pending deposits
-    const pendingDepositsResult = await queryOne(
-      'SELECT SUM(amount) as total FROM transactions WHERE status = "pending" AND type = "deposit"'
-    );
-    const pendingDeposits = pendingDepositsResult.total || 0;
+        // Get total earnings (sum of all completed transactions with type EARNING)
+        const earningsAggregate = await prisma.transaction.aggregate({
+          where: {
+            status: 'COMPLETED',
+            type: 'EARNING'
+          },
+          _sum: {
+            amount: true
+          }
+        });
+        const totalEarnings = parseFloat(earningsAggregate._sum.amount || 0);
 
-    // Get completed withdrawals
-    const completedWithdrawalsResult = await queryOne(
-      'SELECT SUM(amount) as total FROM transactions WHERE status = "completed" AND type = "withdrawal"'
-    );
-    const completedWithdrawals = completedWithdrawalsResult.total || 0;
+        // Get pending deposits
+        const pendingDepositsAggregate = await prisma.transaction.aggregate({
+          where: {
+            status: 'PENDING',
+            type: 'DEPOSIT'
+          },
+          _sum: {
+            amount: true
+          }
+        });
+        const pendingDeposits = parseFloat(pendingDepositsAggregate._sum.amount || 0);
 
-    // Get total revenue (sum of all deposits)
-    const totalRevenueResult = await queryOne(
-      'SELECT SUM(amount) as total FROM transactions WHERE type = "deposit"'
-    );
-    const totalRevenue = totalRevenueResult.total || 0;
+        // Get completed withdrawals
+        const withdrawalsAggregate = await prisma.transaction.aggregate({
+          where: {
+            status: 'COMPLETED',
+            type: 'WITHDRAWAL'
+          },
+          _sum: {
+            amount: true
+          }
+        });
+        const completedWithdrawals = parseFloat(withdrawalsAggregate._sum.amount || 0);
 
-    // Get revenue this month
-    const monthAgo = new Date();
-    monthAgo.setMonth(monthAgo.getMonth() - 1);
-    const revenueThisMonthResult = await queryOne(
-      'SELECT SUM(amount) as total FROM transactions WHERE type = "deposit" AND created_at >= ?',
-      [monthAgo]
-    );
-    const revenueThisMonth = revenueThisMonthResult.total || 0;
+        // Get total revenue (sum of all deposits)
+        const revenueAggregate = await prisma.transaction.aggregate({
+          where: {
+            type: 'DEPOSIT'
+          },
+          _sum: {
+            amount: true
+          }
+        });
+        const totalRevenue = parseFloat(revenueAggregate._sum.amount || 0);
 
-    // Get revenue this week
-    const weekAgo = new Date();
-    weekAgo.setDate(weekAgo.getDate() - 7);
-    const revenueThisWeekResult = await queryOne(
-      'SELECT SUM(amount) as total FROM transactions WHERE type = "deposit" AND created_at >= ?',
-      [weekAgo]
-    );
-    const revenueThisWeek = revenueThisWeekResult.total || 0;
+        // Get revenue this month
+        const monthAgo = new Date();
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        const revenueThisMonthAggregate = await prisma.transaction.aggregate({
+          where: {
+            type: 'DEPOSIT',
+            createdAt: {
+              gte: monthAgo
+            }
+          },
+          _sum: {
+            amount: true
+          }
+        });
+        const revenueThisMonth = parseFloat(revenueThisMonthAggregate._sum.amount || 0);
 
-    res.json({
-      success: true,
-      data: {
-        totalEarnings: 0, // Set to zero for live testing
-        pendingDeposits: 0, // Set to zero for live testing
-        completedWithdrawals: 0, // Set to zero for live testing
-        totalRevenue: 0, // Set to zero for live testing
-        revenueThisMonth: 0, // Set to zero for live testing
-        revenueThisWeek: 0 // Set to zero for live testing
+        // Get revenue this week
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        const revenueThisWeekAggregate = await prisma.transaction.aggregate({
+          where: {
+            type: 'DEPOSIT',
+            createdAt: {
+              gte: weekAgo
+            }
+          },
+          _sum: {
+            amount: true
+          }
+        });
+        const revenueThisWeek = parseFloat(revenueThisWeekAggregate._sum.amount || 0);
+
+        await prisma.$disconnect();
+
+        res.json({
+          success: true,
+          data: {
+            totalEarnings,
+            pendingDeposits,
+            completedWithdrawals,
+            totalRevenue,
+            revenueThisMonth,
+            revenueThisWeek
+          }
+        });
+      } catch (prismaError) {
+        console.error('Prisma error:', prismaError);
+        throw prismaError;
       }
-    });
+    } else {
+      // Use MySQL (original code)
+      const totalEarningsResult = await queryOne(
+        'SELECT SUM(amount) as total FROM transactions WHERE status = "completed" AND type = "earning"'
+      );
+      const totalEarnings = totalEarningsResult.total || 0;
+
+      const pendingDepositsResult = await queryOne(
+        'SELECT SUM(amount) as total FROM transactions WHERE status = "pending" AND type = "deposit"'
+      );
+      const pendingDeposits = pendingDepositsResult.total || 0;
+
+      const completedWithdrawalsResult = await queryOne(
+        'SELECT SUM(amount) as total FROM transactions WHERE status = "completed" AND type = "withdrawal"'
+      );
+      const completedWithdrawals = completedWithdrawalsResult.total || 0;
+
+      const totalRevenueResult = await queryOne(
+        'SELECT SUM(amount) as total FROM transactions WHERE type = "deposit"'
+      );
+      const totalRevenue = totalRevenueResult.total || 0;
+
+      const monthAgo = new Date();
+      monthAgo.setMonth(monthAgo.getMonth() - 1);
+      const revenueThisMonthResult = await queryOne(
+        'SELECT SUM(amount) as total FROM transactions WHERE type = "deposit" AND created_at >= ?',
+        [monthAgo]
+      );
+      const revenueThisMonth = revenueThisMonthResult.total || 0;
+
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      const revenueThisWeekResult = await queryOne(
+        'SELECT SUM(amount) as total FROM transactions WHERE type = "deposit" AND created_at >= ?',
+        [weekAgo]
+      );
+      const revenueThisWeek = revenueThisWeekResult.total || 0;
+
+      res.json({
+        success: true,
+        data: {
+          totalEarnings,
+          pendingDeposits,
+          completedWithdrawals,
+          totalRevenue,
+          revenueThisMonth,
+          revenueThisWeek
+        }
+      });
+    }
   } catch (error) {
     console.error('Get payment stats error:', error);
     res.status(500).json({

@@ -31,56 +31,126 @@ const authenticateToken = (req, res, next) => {
 // Get user statistics for dashboard
 router.get('/stats/overview', authenticateToken, async (req, res) => {
   try {
-    // Get total users count
-    const totalUsersResult = await queryOne('SELECT COUNT(*) as total FROM users');
-    const totalUsers = totalUsersResult.total || 0;
+    const USE_PRISMA = process.env.USE_PRISMA === 'true' || (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('supabase'));
+    
+    if (USE_PRISMA) {
+      // Use Prisma for Supabase/PostgreSQL
+      try {
+        const { PrismaClient } = require('@prisma/client');
+        const prisma = new PrismaClient();
 
-    // Get active users count (status = 1)
-    const activeUsersResult = await queryOne('SELECT COUNT(*) as total FROM users WHERE status = 1');
-    const activeUsers = activeUsersResult.total || 0;
+        // Get total users count
+        const totalUsers = await prisma.user.count();
 
-    // Get pro users count (membership_level = 2)
-    const proUsersResult = await queryOne('SELECT COUNT(*) as total FROM users WHERE membership_level = 2');
-    const proUsers = proUsersResult.total || 0;
+        // Get active users count (status = 'ACTIVE' and isActive = true)
+        const activeUsers = await prisma.user.count({
+          where: {
+            status: 'ACTIVE',
+            isActive: true
+          }
+        });
 
-    // Get pending users count (status = 0)
-    const pendingUsersResult = await queryOne('SELECT COUNT(*) as total FROM users WHERE status = 0');
-    const pendingUsers = pendingUsersResult.total || 0;
+        // Get pro users count (memberType = 'PRO')
+        const proUsers = await prisma.user.count({
+          where: {
+            memberType: 'PRO'
+          }
+        });
 
-    // Get new users this week
-    const weekAgo = new Date();
-    weekAgo.setDate(weekAgo.getDate() - 7);
-    const newUsersThisWeekResult = await queryOne(
-      'SELECT COUNT(*) as total FROM users WHERE created_at >= ?',
-      [weekAgo]
-    );
-    const newUsersThisWeek = newUsersThisWeekResult.total || 0;
+        // Get pending users count (status = 'PENDING')
+        const pendingUsers = await prisma.user.count({
+          where: {
+            status: 'PENDING'
+          }
+        });
 
-    // Get new users this month
-    const monthAgo = new Date();
-    monthAgo.setMonth(monthAgo.getMonth() - 1);
-    const newUsersThisMonthResult = await queryOne(
-      'SELECT COUNT(*) as total FROM users WHERE created_at >= ?',
-      [monthAgo]
-    );
-    const newUsersThisMonth = newUsersThisMonthResult.total || 0;
+        // Get new users this week
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        const newUsersThisWeek = await prisma.user.count({
+          where: {
+            createdAt: {
+              gte: weekAgo
+            }
+          }
+        });
 
-    res.json({
-      success: true,
-      data: {
-        totalUsers: 0, // Set to zero for live testing
-        activeUsers: 0, // Set to zero for live testing
-        proUsers: 0, // Set to zero for live testing
-        pendingUsers: 0, // Set to zero for live testing
-        newUsersThisWeek: 0, // Set to zero for live testing
-        newUsersThisMonth: 0 // Set to zero for live testing
+        // Get new users this month
+        const monthAgo = new Date();
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        const newUsersThisMonth = await prisma.user.count({
+          where: {
+            createdAt: {
+              gte: monthAgo
+            }
+          }
+        });
+
+        await prisma.$disconnect();
+
+        res.json({
+          success: true,
+          data: {
+            totalUsers,
+            activeUsers,
+            proUsers,
+            pendingUsers,
+            newUsersThisWeek,
+            newUsersThisMonth
+          }
+        });
+      } catch (prismaError) {
+        console.error('Prisma error:', prismaError);
+        throw prismaError;
       }
-    });
+    } else {
+      // Use MySQL (original code)
+      const totalUsersResult = await queryOne('SELECT COUNT(*) as total FROM users');
+      const totalUsers = totalUsersResult.total || 0;
+
+      const activeUsersResult = await queryOne('SELECT COUNT(*) as total FROM users WHERE status = 1');
+      const activeUsers = activeUsersResult.total || 0;
+
+      const proUsersResult = await queryOne('SELECT COUNT(*) as total FROM users WHERE membership_level = 2');
+      const proUsers = proUsersResult.total || 0;
+
+      const pendingUsersResult = await queryOne('SELECT COUNT(*) as total FROM users WHERE status = 0');
+      const pendingUsers = pendingUsersResult.total || 0;
+
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      const newUsersThisWeekResult = await queryOne(
+        'SELECT COUNT(*) as total FROM users WHERE created_at >= ?',
+        [weekAgo]
+      );
+      const newUsersThisWeek = newUsersThisWeekResult.total || 0;
+
+      const monthAgo = new Date();
+      monthAgo.setMonth(monthAgo.getMonth() - 1);
+      const newUsersThisMonthResult = await queryOne(
+        'SELECT COUNT(*) as total FROM users WHERE created_at >= ?',
+        [monthAgo]
+      );
+      const newUsersThisMonth = newUsersThisMonthResult.total || 0;
+
+      res.json({
+        success: true,
+        data: {
+          totalUsers,
+          activeUsers,
+          proUsers,
+          pendingUsers,
+          newUsersThisWeek,
+          newUsersThisMonth
+        }
+      });
+    }
   } catch (error) {
     console.error('Get user stats error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to get user statistics'
+      error: 'Failed to get user statistics',
+      details: error.message
     });
   }
 });

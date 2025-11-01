@@ -31,36 +31,83 @@ const authenticateToken = (req, res, next) => {
 // Get matrix level statistics for dashboard
 router.get('/level-stats', authenticateToken, async (req, res) => {
   try {
-    // Get total matrix positions
-    const totalPositionsResult = await queryOne('SELECT COUNT(*) as total FROM matrix_positions');
-    const totalPositions = totalPositionsResult.total || 0;
+    const USE_PRISMA = process.env.USE_PRISMA === 'true' || (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('supabase'));
+    
+    if (USE_PRISMA) {
+      // Use Prisma for Supabase/PostgreSQL
+      try {
+        const { PrismaClient } = require('@prisma/client');
+        const prisma = new PrismaClient();
 
-    // Get active matrix positions (status = 'active')
-    const activePositionsResult = await queryOne('SELECT COUNT(*) as total FROM matrix_positions WHERE status = "active"');
-    const activePositions = activePositionsResult.total || 0;
+        // Get total matrix positions
+        const totalPositions = await prisma.matrixPosition.count();
 
-    // Get pending matrix positions (status = 'pending')
-    const pendingPositionsResult = await queryOne('SELECT COUNT(*) as total FROM matrix_positions WHERE status = "pending"');
-    const pendingPositions = pendingPositionsResult.total || 0;
+        // Get active matrix positions (status = 'ACTIVE')
+        const activePositions = await prisma.matrixPosition.count({
+          where: {
+            status: 'ACTIVE'
+          }
+        });
 
-    // Get completed cycles
-    const completedCyclesResult = await queryOne('SELECT COUNT(*) as total FROM matrix_cycles WHERE status = "completed"');
-    const completedCycles = completedCyclesResult.total || 0;
+        // Get pending matrix positions (status = 'PENDING')
+        const pendingPositions = await prisma.matrixPosition.count({
+          where: {
+            status: 'PENDING'
+          }
+        });
 
-    res.json({
-      success: true,
-      data: {
-        totalPositions: 0, // Set to zero for live testing
-        activePositions: 0, // Set to zero for live testing
-        pendingPositions: 0, // Set to zero for live testing
-        completedCycles: 0 // Set to zero for live testing
+        // Get completed cycles (positions that have completed)
+        const completedCycles = await prisma.matrixPosition.count({
+          where: {
+            status: 'COMPLETED'
+          }
+        });
+
+        await prisma.$disconnect();
+
+        res.json({
+          success: true,
+          data: {
+            totalPositions,
+            activePositions,
+            pendingPositions,
+            completedCycles
+          }
+        });
+      } catch (prismaError) {
+        console.error('Prisma error:', prismaError);
+        throw prismaError;
       }
-    });
+    } else {
+      // Use MySQL (original code)
+      const totalPositionsResult = await queryOne('SELECT COUNT(*) as total FROM matrix_positions');
+      const totalPositions = totalPositionsResult.total || 0;
+
+      const activePositionsResult = await queryOne('SELECT COUNT(*) as total FROM matrix_positions WHERE status = "active"');
+      const activePositions = activePositionsResult.total || 0;
+
+      const pendingPositionsResult = await queryOne('SELECT COUNT(*) as total FROM matrix_positions WHERE status = "pending"');
+      const pendingPositions = pendingPositionsResult.total || 0;
+
+      const completedCyclesResult = await queryOne('SELECT COUNT(*) as total FROM matrix_cycles WHERE status = "completed"');
+      const completedCycles = completedCyclesResult.total || 0;
+
+      res.json({
+        success: true,
+        data: {
+          totalPositions,
+          activePositions,
+          pendingPositions,
+          completedCycles
+        }
+      });
+    }
   } catch (error) {
     console.error('Get matrix level stats error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to get matrix level statistics'
+      error: 'Failed to get matrix level statistics',
+      details: error.message
     });
   }
 });
