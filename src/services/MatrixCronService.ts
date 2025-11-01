@@ -1345,15 +1345,18 @@ export class MatrixCronService {
         subject = config.subject1 || '';
         message = config.message1 || '';
         // eformat: 1=text, 2=HTML (default)
-        format = (config.eformat1 === 1 || config.eformat1 === '1' || config.eformat1?.toLowerCase() === 'text') ? 'text' : 'html';
+        const eformat1 = String(config.eformat1 || '');
+        format = (eformat1 === '1' || eformat1.toLowerCase() === 'text') ? 'text' : 'html';
       } else if (emailType === 2) {
         subject = config.subject2 || '';
         message = config.message2 || '';
-        format = (config.eformat2 === 1 || config.eformat2 === '1' || config.eformat2?.toLowerCase() === 'text') ? 'text' : 'html';
+        const eformat2 = String(config.eformat2 || '');
+        format = (eformat2 === '1' || eformat2.toLowerCase() === 'text') ? 'text' : 'html';
       } else if (emailType === 3) {
         subject = config.subject3 || '';
         message = config.message3 || '';
-        format = (config.eformat3 === 1 || config.eformat3 === '1' || config.eformat3?.toLowerCase() === 'text') ? 'text' : 'html';
+        const eformat3 = String(config.eformat3 || '');
+        format = (eformat3 === '1' || eformat3.toLowerCase() === 'text') ? 'text' : 'html';
       }
 
       // Replace template variables
