@@ -26,7 +26,8 @@ import {
   Crown,
   Medal,
   Star,
-  Zap
+  Zap,
+  X
 } from 'lucide-react';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { toast } from 'react-hot-toast';
