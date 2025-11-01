@@ -565,7 +565,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
 // ============ IPN (Instant Payment Notification) Routes ============
 // These routes handle webhook callbacks from payment gateways for auto-approval
 
-const PaymentGatewayService = require('../services/PaymentGatewayService');
+// PaymentGatewayService is already required at the top of the file
 
 // CoinPayments IPN endpoint (POST)
 router.post('/ipn/coinpayments', express.raw({ type: 'application/x-www-form-urlencoded' }), async (req, res) => {
