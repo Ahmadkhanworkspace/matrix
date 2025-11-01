@@ -65,7 +65,6 @@ model User {
   transactionLogs TransactionLog[] @relation("TransactionLogs")
   withdrawalTransactions WithdrawalTransaction[] @relation("WithdrawalTransactions")
   globalPIFPool   GlobalPIFPool[] @relation("GlobalPIFPool")
-  videoAdPurchases VideoAdPurchase[] @relation("VideoAdPurchases")
   referralLinks      ReferralLink[] @relation("ReferralLinks")
   referralConversions ReferralConversion[] @relation("ReferralConversions")
   userRanks         UserRank[] @relation("UserRanks")
@@ -714,20 +713,6 @@ model Backup {
   @@index([type])
   @@index([createdAt])
   @@map("backups")
-}
-
-// System configuration model
-model SystemConfig {
-  id          String   @id @default(cuid())
-  key         String   @unique
-  value       String   @db.Text
-  description String?  @db.Text
-  isPublic    Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([key])
-  @@map("system_configs")
 }
 
 // Verifier model - queue for pending matrix entries

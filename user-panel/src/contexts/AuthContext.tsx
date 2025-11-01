@@ -44,15 +44,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    // Check if user is logged in on app start
+    // Check if user is logged in on app start and verify token
     const token = localStorage.getItem('authToken');
     const userData = localStorage.getItem('userData');
     
     if (token && userData) {
       try {
         const parsedUser = JSON.parse(userData);
+        
+        // Optionally verify token with backend
+        // For now, just restore from localStorage
         setUser(parsedUser);
         setIsAuthenticated(true);
+        
+        // Verify token is still valid (optional - can be async)
+        // You can add a call to /api/auth/profile here to verify
       } catch (error) {
         console.error('Failed to parse user data:', error);
         localStorage.removeItem('authToken');
@@ -63,44 +69,51 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (username: string, password: string): Promise<boolean> => {
     try {
-      // Dummy credentials for testing
-      const dummyCredentials = {
-        'admin': 'admin123',
-        'user': 'user123',
-        'demo': 'demo123',
-        'test': 'test123'
-      };
+      // Use real API for authentication
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      });
 
-      // Check if credentials match dummy accounts
-      if (dummyCredentials[username as keyof typeof dummyCredentials] === password) {
-        const mockUser: User = {
-          id: username === 'admin' ? 1 : 2,
-          username: username,
-          email: `${username}@example.com`,
-          first_name: username === 'admin' ? 'Admin' : 'User',
-          last_name: username === 'admin' ? 'User' : 'Demo',
-          status: username === 'admin' ? 'pro' : 'free',
-          balance: username === 'admin' ? 5000.00 : 1250.50,
-          purchase_balance: username === 'admin' ? 2000.00 : 500.00,
-          total_earnings: username === 'admin' ? 15000.00 : 5000.00,
-          total_paid: username === 'admin' ? 8000.00 : 2500.00,
-          total_positions: username === 'admin' ? 15 : 8,
-          total_referrals: username === 'admin' ? 25 : 12,
-          join_date: '2024-01-01',
-          last_login: new Date().toISOString()
-        };
+      const data = await response.json();
 
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        setUser(mockUser);
-        setIsAuthenticated(true);
-        localStorage.setItem('authToken', 'mock-token');
-        localStorage.setItem('userData', JSON.stringify(mockUser));
+      if (response.ok && data.success && data.data?.token) {
+        // Store token and user data
+        localStorage.setItem('authToken', data.data.token);
+        
+        // Map backend user data to frontend User interface
+        if (data.data.user) {
+          const userData = data.data.user;
+          const mappedUser: User = {
+            id: userData.id,
+            username: userData.username,
+            email: userData.email,
+            first_name: userData.first_name || userData.firstName || '',
+            last_name: userData.last_name || userData.lastName || '',
+            status: (userData.status === 1 || userData.status === 'ACTIVE' || userData.memberType === 'PRO') ? 'pro' : 'free',
+            balance: userData.balance || userData.unpaidEarnings || userData.unpaid_earnings || 0,
+            purchase_balance: userData.purchaseBalance || userData.purchase_balance || 0,
+            total_earnings: userData.totalEarnings || userData.total_earnings || userData.Total || 0,
+            total_paid: userData.totalPaid || userData.total_paid || userData.Paid || userData.paidEarnings || 0,
+            total_positions: userData.totalPositions || userData.total_positions || 0,
+            total_referrals: userData.totalReferrals || userData.total_referrals || 0,
+            join_date: userData.join_date || userData.joinDate || userData.createdAt || new Date().toISOString(),
+            last_login: userData.last_login || userData.lastLogin || userData.lastLogin || new Date().toISOString(),
+          };
+          
+          setUser(mappedUser);
+          setIsAuthenticated(true);
+          localStorage.setItem('userData', JSON.stringify(mappedUser));
+        }
 
         return true;
       } else {
-        // Invalid credentials
+        // Invalid credentials or error
         return false;
       }
     } catch (error) {

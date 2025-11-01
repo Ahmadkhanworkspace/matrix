@@ -314,111 +314,245 @@ router.get('/profile', authenticateToken, async (req, res) => {
   }
 });
 
-// Get user stats (for Stats page)
+// Get user stats (for Stats page and Dashboard)
 router.get('/stats', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId || req.user.id;
     
-    // Get user data
-    const user = await queryOne(
-      'SELECT Total as totalEarnings, Unpaid as unpaidEarnings, Paid as paidEarnings FROM users WHERE id = ?',
-      [userId]
-    );
+    // Check if using Prisma
+    const USE_PRISMA = process.env.USE_PRISMA === 'true' || (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('supabase'));
+    
+    if (USE_PRISMA) {
+      // Use Prisma for Supabase
+      try {
+        const { PrismaClient } = require('@prisma/client');
+        const prisma = new PrismaClient();
 
-    // Get withdrawals
-    const withdrawalsResult = await queryOne(
-      'SELECT SUM(Amount) as total FROM wtransaction WHERE Username = (SELECT username FROM users WHERE id = ?) AND approved = 1',
-      [userId]
-    );
-    const totalWithdrawals = parseFloat(withdrawalsResult?.total || 0);
+        // Get user data
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: {
+            totalEarnings: true,
+            unpaidEarnings: true,
+            paidEarnings: true,
+            username: true
+          }
+        });
 
-    // Get referrals count
-    const referralsResult = await queryOne(
-      'SELECT COUNT(*) as total FROM users WHERE ref_by = (SELECT username FROM users WHERE id = ?)',
-      [userId]
-    );
-    const totalReferrals = referralsResult?.total || 0;
+        if (!user) {
+          await prisma.$disconnect();
+          return res.status(404).json({
+            success: false,
+            error: 'User not found'
+          });
+        }
 
-    // Get active referrals
-    const activeReferralsResult = await queryOne(
-      'SELECT COUNT(*) as total FROM users WHERE ref_by = (SELECT username FROM users WHERE id = ?) AND status = 1',
-      [userId]
-    );
-    const activeReferrals = activeReferralsResult?.total || 0;
+        // Get withdrawals
+        const withdrawals = await prisma.withdrawalTransaction.findMany({
+          where: {
+            userId: userId,
+            approved: 1
+          }
+        });
+        const totalWithdrawals = withdrawals.reduce((sum, w) => sum + parseFloat(w.amount || 0), 0);
 
-    // Get matrix positions count
-    const positionsResult = await queryOne(
-      'SELECT COUNT(*) as total FROM matrix_positions WHERE userId = ?',
-      [userId]
-    );
-    const matrixPositions = positionsResult?.total || 0;
+        // Get referrals count
+        const totalReferrals = await prisma.user.count({
+          where: {
+            sponsorId: userId
+          }
+        });
 
-    // Get completed cycles
-    const completedCyclesResult = await queryOne(
-      'SELECT COUNT(*) as total FROM matrix_positions WHERE userId = ? AND status = ?',
-      [userId, 'COMPLETED']
-    );
-    const completedCycles = completedCyclesResult?.total || 0;
+        // Get active referrals
+        const activeReferrals = await prisma.user.count({
+          where: {
+            sponsorId: userId,
+            status: 'ACTIVE'
+          }
+        });
 
-    // Get pending cycles (active positions)
-    const pendingCyclesResult = await queryOne(
-      'SELECT COUNT(*) as total FROM matrix_positions WHERE userId = ? AND status = ?',
-      [userId, 'ACTIVE']
-    );
-    const pendingCycles = pendingCyclesResult?.total || 0;
+        // Get matrix positions count
+        const matrixPositions = await prisma.matrixPosition.count({
+          where: { userId: userId }
+        });
 
-    // Get total bonuses
-    const bonusesResult = await queryOne(
-      'SELECT SUM(amount) as total FROM bonuses WHERE userId = ?',
-      [userId]
-    );
-    const totalBonuses = parseFloat(bonusesResult?.total || 0);
+        // Get completed cycles
+        const completedCycles = await prisma.matrixPosition.count({
+          where: {
+            userId: userId,
+            status: 'COMPLETED'
+          }
+        });
 
-    // Get this month earnings (from transactions)
-    const monthAgo = new Date();
-    monthAgo.setMonth(monthAgo.getMonth() - 1);
-    const thisMonthResult = await queryOne(
-      'SELECT SUM(amount) as total FROM transactions WHERE user_id = ? AND type = ? AND status = ? AND created_at >= ?',
-      [userId, 'DEPOSIT', 'COMPLETED', monthAgo]
-    );
-    const thisMonthEarnings = parseFloat(thisMonthResult?.total || 0);
+        // Get pending cycles (active positions)
+        const pendingCycles = await prisma.matrixPosition.count({
+          where: {
+            userId: userId,
+            status: 'ACTIVE'
+          }
+        });
 
-    // Get last month earnings
-    const twoMonthsAgo = new Date();
-    twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
-    const lastMonthResult = await queryOne(
-      'SELECT SUM(amount) as total FROM transactions WHERE user_id = ? AND type = ? AND status = ? AND created_at >= ? AND created_at < ?',
-      [userId, 'DEPOSIT', 'COMPLETED', twoMonthsAgo, monthAgo]
-    );
-    const lastMonthEarnings = parseFloat(lastMonthResult?.total || 0);
+        // Get total bonuses
+        const bonuses = await prisma.bonus.findMany({
+          where: { userId: userId }
+        });
+        const totalBonuses = bonuses.reduce((sum, b) => sum + parseFloat(b.amount || 0), 0);
 
-    // Calculate earnings growth
-    const earningsGrowth = lastMonthEarnings > 0 
-      ? ((thisMonthEarnings - lastMonthEarnings) / lastMonthEarnings) * 100 
-      : 0;
+        // Get this month earnings (from transactions)
+        const monthAgo = new Date();
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        const thisMonthTransactions = await prisma.transaction.findMany({
+          where: {
+            userId: userId,
+            type: 'DEPOSIT',
+            status: 'COMPLETED',
+            createdAt: { gte: monthAgo }
+          }
+        });
+        const thisMonthEarnings = thisMonthTransactions.reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
 
-    res.json({
-      success: true,
-      data: {
-        totalEarnings: parseFloat(user?.totalEarnings || 0),
-        totalWithdrawals: totalWithdrawals,
-        availableBalance: parseFloat(user?.unpaidEarnings || 0),
-        totalReferrals: totalReferrals,
-        activeReferrals: activeReferrals,
-        matrixPositions: matrixPositions,
-        completedCycles: completedCycles,
-        pendingCycles: pendingCycles,
-        totalBonuses: totalBonuses,
-        thisMonthEarnings: thisMonthEarnings,
-        lastMonthEarnings: lastMonthEarnings,
-        earningsGrowth: earningsGrowth
+        // Get last month earnings
+        const twoMonthsAgo = new Date();
+        twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+        const lastMonthTransactions = await prisma.transaction.findMany({
+          where: {
+            userId: userId,
+            type: 'DEPOSIT',
+            status: 'COMPLETED',
+            createdAt: {
+              gte: twoMonthsAgo,
+              lt: monthAgo
+            }
+          }
+        });
+        const lastMonthEarnings = lastMonthTransactions.reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+
+        // Calculate earnings growth
+        const earningsGrowth = lastMonthEarnings > 0 
+          ? ((thisMonthEarnings - lastMonthEarnings) / lastMonthEarnings) * 100 
+          : 0;
+
+        await prisma.$disconnect();
+
+        res.json({
+          success: true,
+          data: {
+            totalEarnings: parseFloat(user.totalEarnings || 0),
+            totalWithdrawals: totalWithdrawals,
+            availableBalance: parseFloat(user.unpaidEarnings || 0),
+            purchaseBalance: 0, // Add if you have this field
+            totalReferrals: totalReferrals,
+            activeReferrals: activeReferrals,
+            matrixPositions: matrixPositions,
+            totalPositions: matrixPositions,
+            completedCycles: completedCycles,
+            pendingCycles: pendingCycles,
+            activeCycles: pendingCycles,
+            totalBonuses: totalBonuses,
+            thisMonthEarnings: thisMonthEarnings,
+            lastMonthEarnings: lastMonthEarnings,
+            earningsGrowth: earningsGrowth,
+            totalPaid: parseFloat(user.paidEarnings || 0)
+          }
+        });
+      } catch (prismaError) {
+        console.error('Prisma error in user stats:', prismaError);
+        // Fallback to MySQL if Prisma fails
+        throw prismaError;
       }
-    });
+    } else {
+      // Fallback to MySQL queries
+      const user = await queryOne(
+        'SELECT Total as totalEarnings, Unpaid as unpaidEarnings, Paid as paidEarnings FROM users WHERE id = ?',
+        [userId]
+      );
+
+      const withdrawalsResult = await queryOne(
+        'SELECT SUM(Amount) as total FROM wtransaction WHERE Username = (SELECT username FROM users WHERE id = ?) AND approved = 1',
+        [userId]
+      );
+      const totalWithdrawals = parseFloat(withdrawalsResult?.total || 0);
+
+      const referralsResult = await queryOne(
+        'SELECT COUNT(*) as total FROM users WHERE ref_by = (SELECT username FROM users WHERE id = ?)',
+        [userId]
+      );
+      const totalReferrals = referralsResult?.total || 0;
+
+      const activeReferralsResult = await queryOne(
+        'SELECT COUNT(*) as total FROM users WHERE ref_by = (SELECT username FROM users WHERE id = ?) AND status = 1',
+        [userId]
+      );
+      const activeReferrals = activeReferralsResult?.total || 0;
+
+      const positionsResult = await queryOne(
+        'SELECT COUNT(*) as total FROM matrix_positions WHERE userId = ?',
+        [userId]
+      );
+      const matrixPositions = positionsResult?.total || 0;
+
+      const completedCyclesResult = await queryOne(
+        'SELECT COUNT(*) as total FROM matrix_positions WHERE userId = ? AND status = ?',
+        [userId, 'COMPLETED']
+      );
+      const completedCycles = completedCyclesResult?.total || 0;
+
+      const pendingCyclesResult = await queryOne(
+        'SELECT COUNT(*) as total FROM matrix_positions WHERE userId = ? AND status = ?',
+        [userId, 'ACTIVE']
+      );
+      const pendingCycles = pendingCyclesResult?.total || 0;
+
+      const bonusesResult = await queryOne(
+        'SELECT SUM(amount) as total FROM bonuses WHERE userId = ?',
+        [userId]
+      );
+      const totalBonuses = parseFloat(bonusesResult?.total || 0);
+
+      const monthAgo = new Date();
+      monthAgo.setMonth(monthAgo.getMonth() - 1);
+      const thisMonthResult = await queryOne(
+        'SELECT SUM(amount) as total FROM transactions WHERE user_id = ? AND type = ? AND status = ? AND created_at >= ?',
+        [userId, 'DEPOSIT', 'COMPLETED', monthAgo]
+      );
+      const thisMonthEarnings = parseFloat(thisMonthResult?.total || 0);
+
+      const twoMonthsAgo = new Date();
+      twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+      const lastMonthResult = await queryOne(
+        'SELECT SUM(amount) as total FROM transactions WHERE user_id = ? AND type = ? AND status = ? AND created_at >= ? AND created_at < ?',
+        [userId, 'DEPOSIT', 'COMPLETED', twoMonthsAgo, monthAgo]
+      );
+      const lastMonthEarnings = parseFloat(lastMonthResult?.total || 0);
+
+      const earningsGrowth = lastMonthEarnings > 0 
+        ? ((thisMonthEarnings - lastMonthEarnings) / lastMonthEarnings) * 100 
+        : 0;
+
+      res.json({
+        success: true,
+        data: {
+          totalEarnings: parseFloat(user?.totalEarnings || 0),
+          totalWithdrawals: totalWithdrawals,
+          availableBalance: parseFloat(user?.unpaidEarnings || 0),
+          totalReferrals: totalReferrals,
+          activeReferrals: activeReferrals,
+          matrixPositions: matrixPositions,
+          completedCycles: completedCycles,
+          pendingCycles: pendingCycles,
+          totalBonuses: totalBonuses,
+          thisMonthEarnings: thisMonthEarnings,
+          lastMonthEarnings: lastMonthEarnings,
+          earningsGrowth: earningsGrowth
+        }
+      });
+    }
   } catch (error) {
     console.error('Get user stats error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to get user stats'
+      error: 'Failed to get user stats',
+      details: error.message
     });
   }
 });

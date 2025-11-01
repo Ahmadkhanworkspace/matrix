@@ -5,6 +5,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { formatCurrency as formatCurrencyUtil } from '../utils/currency';
 import SocialProof from '../components/SocialProof';
 import { useRealtime } from '../hooks/useRealtime';
+import { apiService } from '../api/api';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -52,42 +53,107 @@ const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const { primaryCurrency } = useCurrency();
   const [stats, setStats] = useState<DashboardStats>({
-    totalEarnings: 5000.00,
-    accountBalance: 1250.50,
-    purchaseBalance: 500.00,
-    totalPaid: 2500.00,
-    totalPositions: 8,
-    totalReferrals: 12,
-    activeCycles: 3,
-    completedCycles: 15,
-    pendingWithdrawals: 750.00,
-    recentActivity: [
-      {
-        id: 1,
-        type: 'cycle_completion',
-        amount: 250.00,
-        description: 'Matrix 1 Level 3 cycle completed',
-        date: '2024-01-15T10:30:00Z',
-        status: 'completed'
-      },
-      {
-        id: 2,
-        type: 'referral_bonus',
-        amount: 50.00,
-        description: 'Referral bonus from new member',
-        date: '2024-01-14T15:45:00Z',
-        status: 'completed'
-      },
-      {
-        id: 3,
-        type: 'withdrawal',
-        amount: -500.00,
-        description: 'Withdrawal request submitted',
-        date: '2024-01-13T08:15:00Z',
-        status: 'pending'
-      }
-    ]
+    totalEarnings: 0,
+    accountBalance: 0,
+    purchaseBalance: 0,
+    totalPaid: 0,
+    totalPositions: 0,
+    totalReferrals: 0,
+    activeCycles: 0,
+    completedCycles: 0,
+    pendingWithdrawals: 0,
+    recentActivity: []
   });
+  const [loading, setLoading] = useState(true);
+
+  // Fetch dashboard data from API
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        
+        // Fetch user stats from API
+        const statsResponse = await apiService.getUserStats();
+        
+        if (statsResponse.success && statsResponse.data) {
+          const data = statsResponse.data;
+          setStats({
+            // Use API data or fallback to user context data
+            accountBalance: data.availableBalance || data.balance || user.balance || 0,
+            purchaseBalance: data.purchaseBalance || user.purchase_balance || 0,
+            totalEarnings: data.totalEarnings || user.total_earnings || 0,
+            totalPaid: data.totalPaid || data.totalWithdrawals || user.total_paid || 0,
+            totalPositions: data.matrixPositions || data.totalPositions || user.total_positions || 0,
+            totalReferrals: data.totalReferrals || data.activeReferrals || user.total_referrals || 0,
+            activeCycles: data.activeCycles || data.pendingCycles || 0,
+            completedCycles: data.completedCycles || 0,
+            pendingWithdrawals: data.pendingWithdrawals || 0,
+            recentActivity: data.recentActivity || []
+          });
+        } else {
+          // Fallback to user context data if API fails
+          setStats({
+            accountBalance: user.balance || 0,
+            purchaseBalance: user.purchase_balance || 0,
+            totalEarnings: user.total_earnings || 0,
+            totalPaid: user.total_paid || 0,
+            totalPositions: user.total_positions || 0,
+            totalReferrals: user.total_referrals || 0,
+            activeCycles: 0,
+            completedCycles: 0,
+            pendingWithdrawals: 0,
+            recentActivity: []
+          });
+        }
+
+        // Try to fetch recent activity separately
+        try {
+          const transactionsResponse = await apiService.getTransactions({ limit: 5 });
+          if (transactionsResponse.success && transactionsResponse.data) {
+            const activities = (transactionsResponse.data.transactions || transactionsResponse.data || []).map((tx: any, index: number) => ({
+              id: tx.id || index,
+              type: tx.type?.toLowerCase() || 'transaction',
+              amount: parseFloat(tx.amount || 0),
+              description: tx.description || tx.type || 'Transaction',
+              date: tx.createdAt || tx.date || new Date().toISOString(),
+              status: tx.status?.toLowerCase() || 'completed'
+            }));
+            setStats(prev => ({
+              ...prev,
+              recentActivity: activities
+            }));
+          }
+        } catch (error) {
+          console.log('Could not fetch recent activity:', error);
+        }
+
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        // Fallback to user context data
+        setStats({
+          accountBalance: user.balance || 0,
+          purchaseBalance: user.purchase_balance || 0,
+          totalEarnings: user.total_earnings || 0,
+          totalPaid: user.total_paid || 0,
+          totalPositions: user.total_positions || 0,
+          totalReferrals: user.total_referrals || 0,
+          activeCycles: 0,
+          completedCycles: 0,
+          pendingWithdrawals: 0,
+          recentActivity: []
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [user]);
 
   const formatCurrency = (amount: number | string | null | undefined) => {
     try {
@@ -145,6 +211,19 @@ const Dashboard: React.FC = () => {
       console.log('Profile updated - refreshing dashboard...');
     }
   });
+
+  if (loading) {
+    return (
+      <div className="space-y-6 w-full max-w-full overflow-x-hidden">
+        <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-200 shadow-sm">
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <span className="ml-4 text-gray-600">Loading dashboard data...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 w-full max-w-full overflow-x-hidden">
