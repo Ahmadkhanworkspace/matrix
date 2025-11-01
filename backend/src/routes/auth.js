@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { query, queryOne } = require('../config/database');
+const { prisma, USE_PRISMA } = require('../config/databaseHybrid');
 
 const router = express.Router();
 
@@ -78,28 +79,76 @@ router.post('/login', async (req, res) => {
     }
 
     // Find user by username or email
-    const user = await queryOne(
-      'SELECT id, username, email, password_hash, first_name, last_name, status, membership_level, balance FROM users WHERE username = ? OR email = ?',
-      [username, username]
-    );
-
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid credentials'
+    let user;
+    let isValidPassword = false;
+    
+    if (USE_PRISMA && prisma()) {
+      // Use Prisma for Supabase/PostgreSQL
+      user = await prisma().user.findFirst({
+        where: {
+          OR: [
+            { username: username },
+            { email: username }
+          ]
+        },
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          password: true,
+          firstName: true,
+          lastName: true,
+          status: true,
+          memberType: true,
+          totalEarnings: true,
+          unpaidEarnings: true,
+          isActive: true
+        }
       });
+
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid credentials'
+        });
+      }
+
+      // Check if user is active (Prisma uses enum: ACTIVE, PENDING, etc.)
+      if (user.status !== 'ACTIVE' || !user.isActive) {
+        return res.status(401).json({
+          success: false,
+          error: 'Account is not active'
+        });
+      }
+
+      // Verify password (Prisma uses 'password' field, not 'password_hash')
+      isValidPassword = await bcrypt.compare(password, user.password);
+    } else {
+      // Use MySQL (original code)
+      user = await queryOne(
+        'SELECT id, username, email, password_hash, first_name, last_name, status, membership_level, balance FROM users WHERE username = ? OR email = ?',
+        [username, username]
+      );
+
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid credentials'
+        });
+      }
+
+      // Check if user is active
+      if (user.status !== 1) {
+        return res.status(401).json({
+          success: false,
+          error: 'Account is not active'
+        });
+      }
+
+      // Verify password
+      isValidPassword = await bcrypt.compare(password, user.password_hash);
     }
 
-    // Check if user is active
-    if (user.status !== 1) {
-      return res.status(401).json({
-        success: false,
-        error: 'Account is not active'
-      });
-    }
-
-    // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password_hash);
     if (!isValidPassword) {
       return res.status(401).json({
         success: false,
@@ -108,30 +157,50 @@ router.post('/login', async (req, res) => {
     }
 
     // Update last login
-    await query(
-      'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?',
-      [user.id]
-    );
+    if (USE_PRISMA && prisma()) {
+      await prisma().user.update({
+        where: { id: user.id },
+        data: { lastLogin: new Date() }
+      });
+    } else {
+      await query(
+        'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?',
+        [user.id]
+      );
+    }
+
+    // Normalize user data for response
+    const userData = USE_PRISMA && prisma() ? {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      first_name: user.firstName,
+      last_name: user.lastName,
+      status: user.status === 'ACTIVE' ? 1 : 0,
+      membership_level: user.memberType?.toLowerCase() || 'free',
+      balance: user.unpaidEarnings || 0
+    } : user;
 
     // Generate JWT token
     const token = jwt.sign(
       { 
-        userId: user.id, 
-        username: user.username,
-        role: user.membership_level === 'admin' ? 'admin' : 'user'
+        userId: userData.id, 
+        username: userData.username,
+        role: userData.membership_level === 'admin' ? 'admin' : 'user'
       },
       process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '24h' }
     );
 
     // Remove password from response
-    delete user.password_hash;
+    delete userData.password;
+    delete userData.password_hash;
 
     res.json({
       success: true,
       message: 'Login successful',
       data: {
-        user,
+        user: userData,
         token,
         expiresIn: '24h'
       }
