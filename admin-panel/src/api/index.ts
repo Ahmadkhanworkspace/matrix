@@ -364,4 +364,7 @@ export const api = {
   payment: paymentApi,
   settings: settingsApi,
   auth: authApi,
-}; 
+};
+
+// Export adminApiService for pages that import from '../../api'
+export { adminApiService } from './adminApi'; 
