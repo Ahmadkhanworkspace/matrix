@@ -5,10 +5,12 @@ nixPkgs = ["nodejs-18_x"]
 cmds = [
   "npm ci",
   "cd backend && npm ci --production && cd ..",
-  "npm install -g prisma || true",
   "npx prisma generate --schema=./prisma/schema.prisma",
-  "ls -la node_modules/@prisma/client || echo 'Prisma client check failed'",
-  "cd backend && cp -r ../node_modules/@prisma backend/node_modules/@prisma 2>/dev/null || echo 'Copy skipped' || true"
+  "echo 'Checking Prisma client generation...'",
+  "ls -la node_modules/@prisma 2>&1 | head -5 || echo 'Prisma client not found in root'",
+  "test -d node_modules/@prisma && echo '✅ Prisma client found in root' || echo '❌ Prisma client missing in root'",
+  "cd backend && test -d node_modules/@prisma && echo '✅ Prisma client found in backend' || (echo 'Copying Prisma client to backend...' && mkdir -p node_modules && cp -r ../node_modules/@prisma node_modules/@prisma 2>&1 || echo 'Copy failed')",
+  "cd .. && echo 'Prisma setup complete'"
 ]
 
 [phases.build]

@@ -292,13 +292,18 @@ async function initializeSystem() {
     const USE_PRISMA = process.env.USE_PRISMA === 'true' || (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('supabase'));
     if (USE_PRISMA && process.env.DATABASE_URL) {
       try {
-        const { PrismaClient } = require('@prisma/client');
-        const prisma = new PrismaClient();
-        await prisma.$connect();
-        console.log('✅ Prisma/PostgreSQL connected');
-        await prisma.$disconnect();
+        const { prisma } = require('./config/databaseHybrid');
+        const prismaClient = prisma();
+        if (prismaClient) {
+          // Test connection
+          await prismaClient.$queryRaw`SELECT 1`;
+          console.log('✅ Prisma/PostgreSQL connected');
+        } else {
+          console.warn('⚠️  Prisma client not initialized');
+        }
       } catch (prismaError) {
         console.warn('⚠️  Prisma connection failed:', prismaError.message);
+        console.warn('   Stack:', prismaError.stack);
       }
     }
     
@@ -326,16 +331,24 @@ server.listen(PORT, async () => {
   console.log(`🔧 System Status: http://localhost:${PORT}/api/system/status`);
   console.log(`⚡ Socket.IO ready for real-time features`);
   
-  // Pre-initialize Prisma if needed
+  // Pre-initialize Prisma if needed (before routes are accessed)
   const USE_PRISMA = process.env.USE_PRISMA === 'true' || (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('supabase'));
-  if (USE_PRISMA) {
+  if (USE_PRISMA && process.env.DATABASE_URL) {
+    console.log('🔧 Pre-initializing Prisma client...');
     const { prisma } = require('./config/databaseHybrid');
     const prismaClient = prisma();
     if (prismaClient) {
-      console.log('✅ Prisma client pre-initialized');
+      console.log('✅ Prisma client pre-initialized successfully');
+      // Test connection immediately
+      prismaClient.$queryRaw`SELECT 1`
+        .then(() => console.log('✅ Prisma connection test passed'))
+        .catch(err => console.error('❌ Prisma connection test failed:', err.message));
     } else {
       console.error('❌ Failed to pre-initialize Prisma client');
+      console.error('   This will cause login and other database operations to fail');
     }
+  } else {
+    console.log('ℹ️  Prisma disabled (USE_PRISMA or DATABASE_URL not set)');
   }
   
   // Initialize system after server starts
