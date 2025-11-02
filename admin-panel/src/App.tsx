@@ -288,6 +288,7 @@ function App() {
                   <Route path="/gamification/manage" element={<ManageGamification />} />
                 </Routes>
               </Layout>
+              </PrivateRoute>
             } />
             </Routes>
           </Router>
