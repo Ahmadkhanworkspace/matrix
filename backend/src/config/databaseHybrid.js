@@ -79,20 +79,38 @@ const initPrisma = () => {
     
     // Try to require Prisma client - check multiple paths
     let PrismaClient;
+    
+    // Get current working directory and module paths for debugging
+    const cwd = process.cwd();
+    console.log(`   Current working directory: ${cwd}`);
+    console.log(`   __dirname: ${__dirname}`);
+    if (typeof require.resolve.paths === 'function') {
+      const paths = require.resolve.paths('@prisma/client') || [];
+      console.log(`   Node module search paths (first 3):`, paths.slice(0, 3).join(', '));
+    }
+    
     const pathsToTry = [
       '@prisma/client',
       '../../node_modules/@prisma/client',
-      '../../../node_modules/@prisma/client'
+      '../../../node_modules/@prisma/client',
+      '/app/node_modules/@prisma/client',
+      '/app/backend/node_modules/@prisma/client'
     ];
     
     let lastError;
     for (const path of pathsToTry) {
       try {
+        PrismaClient = require.resolve(path);
+        console.log(`   ✅ Resolved Prisma client path: ${PrismaClient}`);
         PrismaClient = require(path).PrismaClient;
-        console.log(`   ✅ Found Prisma client at: ${path}`);
+        console.log(`   ✅ Successfully required Prisma client from: ${path}`);
         break;
       } catch (requireError) {
         lastError = requireError;
+        // Only log if it's not a "module not found" error to reduce noise
+        if (!requireError.message.includes('Cannot find module')) {
+          console.log(`   ⚠️  Failed to require from ${path}: ${requireError.message}`);
+        }
         continue;
       }
     }
@@ -100,9 +118,31 @@ const initPrisma = () => {
     if (!PrismaClient) {
       console.error('❌ Cannot require @prisma/client from any path');
       console.error('   Last error:', lastError?.message);
+      console.error('   Last error code:', lastError?.code);
       console.error('   Tried paths:', pathsToTry.join(', '));
       console.error('   This usually means Prisma client was not generated.');
-      console.error('   Run: npx prisma generate --schema=./prisma/schema.prisma');
+      console.error('   Expected location: node_modules/@prisma/client');
+      
+      // Try to list what's in node_modules to help debug
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const rootNodeModules = path.join(cwd, 'node_modules');
+        const backendNodeModules = path.join(cwd, 'backend', 'node_modules');
+        console.error(`   Root node_modules exists: ${fs.existsSync(rootNodeModules)}`);
+        console.error(`   Backend node_modules exists: ${fs.existsSync(backendNodeModules)}`);
+        if (fs.existsSync(rootNodeModules)) {
+          const prismaDir = path.join(rootNodeModules, '@prisma');
+          console.error(`   @prisma directory exists: ${fs.existsSync(prismaDir)}`);
+          if (fs.existsSync(prismaDir)) {
+            const contents = fs.readdirSync(prismaDir);
+            console.error(`   Contents of @prisma: ${contents.join(', ')}`);
+          }
+        }
+      } catch (debugError) {
+        console.error('   Could not check node_modules:', debugError.message);
+      }
+      
       return null;
     }
 
