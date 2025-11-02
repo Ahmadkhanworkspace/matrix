@@ -77,14 +77,32 @@ const initPrisma = () => {
     console.log('🔧 Attempting to initialize Prisma client...');
     console.log('   DATABASE_URL exists:', !!process.env.DATABASE_URL);
     
-    // Try to require Prisma client
+    // Try to require Prisma client - check multiple paths
     let PrismaClient;
-    try {
-      PrismaClient = require('@prisma/client').PrismaClient;
-    } catch (requireError) {
-      console.error('❌ Cannot require @prisma/client:', requireError.message);
+    const pathsToTry = [
+      '@prisma/client',
+      '../../node_modules/@prisma/client',
+      '../../../node_modules/@prisma/client'
+    ];
+    
+    let lastError;
+    for (const path of pathsToTry) {
+      try {
+        PrismaClient = require(path).PrismaClient;
+        console.log(`   ✅ Found Prisma client at: ${path}`);
+        break;
+      } catch (requireError) {
+        lastError = requireError;
+        continue;
+      }
+    }
+    
+    if (!PrismaClient) {
+      console.error('❌ Cannot require @prisma/client from any path');
+      console.error('   Last error:', lastError?.message);
+      console.error('   Tried paths:', pathsToTry.join(', '));
       console.error('   This usually means Prisma client was not generated.');
-      console.error('   Run: npx prisma generate');
+      console.error('   Run: npx prisma generate --schema=./prisma/schema.prisma');
       return null;
     }
 
