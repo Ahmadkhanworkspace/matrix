@@ -6,15 +6,17 @@ cmds = [
   "npm ci",
   "npm install --save @prisma/client prisma",
   "cd backend && npm install --save @prisma/client prisma && cd ..",
-  "echo '=== Generating Prisma Client (from root) ==='",
-  "PRISMA_SCHEMA_PATH=./prisma/schema.prisma npx prisma generate --schema=./prisma/schema.prisma",
-  "echo '=== Generating Prisma Client (from backend context) ==='",
-  "cd backend && PRISMA_SCHEMA_PATH=../prisma/schema.prisma npx prisma generate --schema=../prisma/schema.prisma && cd ..",
-  "echo '=== Verifying Prisma Generation ==='",
-  "test -d node_modules/.prisma/client && echo '✅ .prisma/client in root' || echo '❌ .prisma/client missing in root'",
-  "test -d backend/node_modules/.prisma/client && echo '✅ .prisma/client in backend' || (echo 'Copying to backend...' && cd backend && mkdir -p node_modules/.prisma && cp -r ../node_modules/.prisma/client node_modules/.prisma/client 2>&1 && echo '✅ Copied' || echo '❌ Copy failed')",
-  "cd .. && test -d backend/node_modules/@prisma/client && echo '✅ @prisma/client in backend' || (echo 'Linking @prisma/client...' && cd backend && mkdir -p node_modules/@prisma && ln -sf ../../node_modules/@prisma/client node_modules/@prisma/client 2>&1 || cp -r ../node_modules/@prisma node_modules/@prisma 2>&1 || echo '❌ Failed')",
-  "cd .. && echo 'Prisma setup complete'"
+  "echo '=== Generating Prisma Client ==='",
+  "npx prisma generate --schema=./prisma/schema.prisma",
+  "echo '=== Verifying generated client has real code (not stub) ==='",
+  "grep -q 'PrismaClient' node_modules/.prisma/client/index.js && echo '✅ Generated client has real code' || echo '❌ Generated client still has stub'",
+  "echo '=== Copying generated client to backend ==='",
+  "cd backend && mkdir -p node_modules/.prisma && rm -rf node_modules/.prisma/client && cp -r ../node_modules/.prisma/client node_modules/.prisma/client && echo '✅ Copied' || echo '❌ Copy failed'",
+  "cd backend && mkdir -p node_modules/@prisma && rm -rf node_modules/@prisma/client && cp -r ../node_modules/@prisma/client node_modules/@prisma/client 2>&1 || ln -sf ../../node_modules/@prisma/client node_modules/@prisma/client 2>&1 || echo '❌ Failed to setup @prisma/client'",
+  "cd .. && echo '=== Final Verification ==='",
+  "test -f backend/node_modules/.prisma/client/index.js && echo '✅ .prisma/client/index.js in backend' || echo '❌ Missing index.js'",
+  "grep -q 'queryEngine' backend/node_modules/.prisma/client/index.js 2>&1 && echo '✅ Backend client has real code' || echo '❌ Backend client may have stub'",
+  "echo 'Prisma setup complete'"
 ]
 
 [phases.build]
