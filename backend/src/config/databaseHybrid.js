@@ -161,7 +161,16 @@ const initPrisma = () => {
       const generatedClientPath = path.join(cwd, 'node_modules', '.prisma', 'client');
       const backendGeneratedClientPath = path.join(cwd, 'backend', 'node_modules', '.prisma', 'client');
       
-      if (!fs.existsSync(generatedClientPath) && !fs.existsSync(backendGeneratedClientPath)) {
+      console.log(`   Checking for generated client at: ${generatedClientPath}`);
+      console.log(`   Or at: ${backendGeneratedClientPath}`);
+      
+      const generatedExists = fs.existsSync(generatedClientPath);
+      const backendGeneratedExists = fs.existsSync(backendGeneratedClientPath);
+      
+      console.log(`   Root .prisma/client exists: ${generatedExists}`);
+      console.log(`   Backend .prisma/client exists: ${backendGeneratedExists}`);
+      
+      if (!generatedExists && !backendGeneratedExists) {
         console.error('❌ Prisma generated client not found');
         console.error(`   Expected at: ${generatedClientPath}`);
         console.error(`   Or: ${backendGeneratedClientPath}`);
@@ -170,18 +179,40 @@ const initPrisma = () => {
       }
       
       console.log('   ✅ Generated Prisma client found, creating instance...');
+      console.log(`   DATABASE_URL length: ${process.env.DATABASE_URL ? process.env.DATABASE_URL.length : 0}`);
       
-      prismaClient = new PrismaClient({
-        log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-      });
+      // Try to create PrismaClient with explicit error handling
+      let clientInstance;
+      try {
+        console.log('   Attempting new PrismaClient()...');
+        clientInstance = new PrismaClient({
+          log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+        });
+        console.log('   ✅ PrismaClient constructor succeeded');
+        console.log(`   Client instance type: ${typeof clientInstance}`);
+        console.log(`   Has $connect: ${typeof clientInstance.$connect === 'function'}`);
+      } catch (constructorErr) {
+        console.error('❌ PrismaClient constructor threw error:', constructorErr.message);
+        console.error('   Error name:', constructorErr.name);
+        console.error('   Error code:', constructorErr.code);
+        console.error('   Full stack:', constructorErr.stack);
+        return null;
+      }
       
       // Verify the client is actually functional (not just created)
-      if (!prismaClient || typeof prismaClient.$connect !== 'function') {
+      if (!clientInstance) {
+        console.error('❌ PrismaClient constructor returned undefined/null');
+        return null;
+      }
+      
+      if (typeof clientInstance.$connect !== 'function') {
         console.error('❌ PrismaClient instance created but appears invalid');
+        console.error(`   Instance keys: ${Object.keys(clientInstance).join(', ')}`);
         prismaClient = null;
         return null;
       }
       
+      prismaClient = clientInstance;
       console.log('   ✅ PrismaClient instance created and validated successfully');
       console.log('✅ Prisma client initialized successfully');
       return prismaClient;
