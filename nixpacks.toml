@@ -6,14 +6,13 @@ cmds = [
   "npm ci",
   "npm install --save @prisma/client prisma",
   "cd backend && npm install --save @prisma/client prisma && cd ..",
-  "echo '=== Generating Prisma Client in root (for reference) ==='",
-  "npx prisma generate --schema=./prisma/schema.prisma || echo 'Root generation failed (may be OK)'",
   "echo '=== Generating Prisma Client in backend (CRITICAL) ==='",
   "cd backend && npx prisma generate --schema=../prisma/schema.prisma && cd ..",
-  "echo '=== Verifying backend generated client has real code ==='",
-  "grep -q 'throw new Error' backend/node_modules/.prisma/client/default.js 2>&1 && echo '❌ Backend client still has stub!' || echo '✅ Backend client has real code (no stub found)'",
-  "test -f backend/node_modules/.prisma/client/index.js && echo '✅ Backend .prisma/client/index.js exists' || echo '❌ Backend index.js missing'",
-  "grep -q 'queryEngine' backend/node_modules/.prisma/client/index.js 2>&1 && echo '✅ Backend client has queryEngine' || echo '⚠️  queryEngine not found (may be OK)'",
+  "echo '=== Verifying Prisma Generation ==='",
+  "ls -la backend/node_modules/.prisma/client/ 2>&1 | head -20 || echo 'Generated client directory not found'",
+  "cat backend/node_modules/.prisma/client/index.js 2>&1 | head -5 || echo 'index.js not found'",
+  "grep -q 'throw new Error.*did not initialize' backend/node_modules/.prisma/client/index.js 2>&1 && echo '❌ index.js still has stub!' || echo '✅ index.js has real code'",
+  "test -f backend/node_modules/.prisma/client/index.d.ts && echo '✅ index.d.ts exists' || echo '❌ index.d.ts missing'",
   "echo 'Prisma setup complete'"
 ]
 
