@@ -297,6 +297,10 @@ app.get('/api/debug/prisma', (req, res) => {
     const prismaClientDir = path.join(rootNodeModules, '@prisma', 'client');
     const backendPrismaDir = path.join(backendNodeModules, '@prisma');
     
+    // Check for generated Prisma client (this is what PrismaClient needs)
+    const generatedClientRoot = path.join(rootNodeModules, '.prisma', 'client');
+    const generatedClientBackend = path.join(backendNodeModules, '.prisma', 'client');
+    
     debug.filesystem = {
       rootNodeModules: {
         exists: fs.existsSync(rootNodeModules),
@@ -318,6 +322,15 @@ app.get('/api/debug/prisma', (req, res) => {
       backendPrismaDir: {
         exists: fs.existsSync(backendPrismaDir),
         path: backendPrismaDir
+      },
+      generatedClientRoot: {
+        exists: fs.existsSync(generatedClientRoot),
+        path: generatedClientRoot,
+        contents: fs.existsSync(generatedClientRoot) ? fs.readdirSync(generatedClientRoot).slice(0, 10) : []
+      },
+      generatedClientBackend: {
+        exists: fs.existsSync(generatedClientBackend),
+        path: generatedClientBackend
       }
     };
 
