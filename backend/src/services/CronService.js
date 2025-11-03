@@ -3,6 +3,7 @@ const MatrixService = require('./MatrixService');
 const PaymentService = require('./PaymentService');
 const EmailService = require('./EmailService');
 const db = require('../config/database');
+const { prisma, USE_PRISMA } = require('../config/databaseHybrid');
 
 class CronService {
   constructor() {
@@ -82,9 +83,23 @@ class CronService {
     
     try {
       // Check if cron is already running
-      const [cronStatus] = await db.execute(
-        'SELECT * FROM cronjobs WHERE name = "matrix_processing" AND status = "running"'
-      );
+      let cronStatus;
+      if (USE_PRISMA) {
+        const prismaClient = prisma();
+        if (prismaClient) {
+          cronStatus = await prismaClient.cronJob.findMany({
+            where: { name: 'matrix_processing', status: 'running' }
+          });
+          cronStatus = [cronStatus];
+        } else {
+          console.error('Prisma client not available for cron');
+          return;
+        }
+      } else {
+        cronStatus = await db.execute(
+          'SELECT * FROM cronjobs WHERE name = "matrix_processing" AND status = "running"'
+        );
+      }
       
       if (cronStatus.length > 0) {
         console.log('Matrix processing already running in database, skipping...');
