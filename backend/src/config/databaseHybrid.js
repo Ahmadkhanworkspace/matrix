@@ -79,6 +79,7 @@ const initPrisma = () => {
     
     // Try to require Prisma client - check multiple paths
     let PrismaClient;
+    let resolvedPrismaClientPath = null;
     
     // Get current working directory and module paths for debugging
     const cwd = process.cwd();
@@ -100,8 +101,9 @@ const initPrisma = () => {
     let lastError;
     for (const path of pathsToTry) {
       try {
-        PrismaClient = require.resolve(path);
-        console.log(`   ✅ Resolved Prisma client path: ${PrismaClient}`);
+        const resolved = require.resolve(path);
+        console.log(`   ✅ Resolved Prisma client path: ${resolved}`);
+        resolvedPrismaClientPath = resolved;
         PrismaClient = require(path).PrismaClient;
         console.log(`   ✅ Successfully required Prisma client from: ${path}`);
         break;
@@ -112,6 +114,52 @@ const initPrisma = () => {
           console.log(`   ⚠️  Failed to require from ${path}: ${requireError.message}`);
         }
         continue;
+      }
+    }
+    
+    // Determine where Prisma will look for generated client
+    // Prisma looks for .prisma/client in the same node_modules as @prisma/client
+    if (resolvedPrismaClientPath) {
+      const prismaClientDir = require('path').dirname(resolvedPrismaClientPath);
+      const expectedGeneratedPath = require('path').join(prismaClientDir, '..', '..', '.prisma', 'client');
+      console.log(`   Prisma will look for generated client at: ${expectedGeneratedPath}`);
+      const fs = require('fs');
+      const generatedExists = fs.existsSync(expectedGeneratedPath);
+      console.log(`   Generated client exists at expected location: ${generatedExists}`);
+      if (!generatedExists) {
+        // Try to copy/link it there
+        const sourceGeneratedPath = require('path').join(cwd, 'node_modules', '.prisma', 'client');
+        if (fs.existsSync(sourceGeneratedPath)) {
+          const targetDir = require('path').join(prismaClientDir, '..', '..', '.prisma');
+          try {
+            if (!fs.existsSync(targetDir)) {
+              fs.mkdirSync(targetDir, { recursive: true });
+            }
+            // Use recursive copy with fs
+            const copyRecursiveSync = (src, dest) => {
+              const exists = fs.existsSync(src);
+              const stats = exists && fs.statSync(src);
+              const isDirectory = exists && stats.isDirectory();
+              if (isDirectory) {
+                if (!fs.existsSync(dest)) {
+                  fs.mkdirSync(dest, { recursive: true });
+                }
+                fs.readdirSync(src).forEach(childItemName => {
+                  copyRecursiveSync(
+                    require('path').join(src, childItemName),
+                    require('path').join(dest, childItemName)
+                  );
+                });
+              } else {
+                fs.copyFileSync(src, dest);
+              }
+            };
+            copyRecursiveSync(sourceGeneratedPath, expectedGeneratedPath);
+            console.log(`   ✅ Copied generated client to expected location`);
+          } catch (copyError) {
+            console.error(`   ⚠️  Failed to copy generated client: ${copyError.message}`);
+          }
+        }
       }
     }
     
