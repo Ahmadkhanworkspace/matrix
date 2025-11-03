@@ -146,12 +146,64 @@ const initPrisma = () => {
       return null;
     }
 
-    prismaClient = new PrismaClient({
-      log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-    });
-
-    console.log('✅ Prisma client initialized successfully');
-    return prismaClient;
+    console.log('   ✅ PrismaClient class found, attempting to instantiate...');
+    
+    try {
+      // Validate DATABASE_URL format before creating client
+      if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('://')) {
+        console.error('❌ DATABASE_URL appears to be invalid (missing protocol)');
+        return null;
+      }
+      
+      // Check if generated Prisma client exists
+      const fs = require('fs');
+      const path = require('path');
+      const generatedClientPath = path.join(cwd, 'node_modules', '.prisma', 'client');
+      const backendGeneratedClientPath = path.join(cwd, 'backend', 'node_modules', '.prisma', 'client');
+      
+      if (!fs.existsSync(generatedClientPath) && !fs.existsSync(backendGeneratedClientPath)) {
+        console.error('❌ Prisma generated client not found');
+        console.error(`   Expected at: ${generatedClientPath}`);
+        console.error(`   Or: ${backendGeneratedClientPath}`);
+        console.error('   Run: npx prisma generate --schema=./prisma/schema.prisma');
+        return null;
+      }
+      
+      console.log('   ✅ Generated Prisma client found, creating instance...');
+      
+      prismaClient = new PrismaClient({
+        log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+      });
+      
+      // Verify the client is actually functional (not just created)
+      if (!prismaClient || typeof prismaClient.$connect !== 'function') {
+        console.error('❌ PrismaClient instance created but appears invalid');
+        prismaClient = null;
+        return null;
+      }
+      
+      console.log('   ✅ PrismaClient instance created and validated successfully');
+      console.log('✅ Prisma client initialized successfully');
+      return prismaClient;
+    } catch (constructorError) {
+      console.error('❌ Error creating PrismaClient instance:', constructorError.message);
+      console.error('   Error name:', constructorError.name);
+      console.error('   Error code:', constructorError.code);
+      console.error('   Error stack:', constructorError.stack);
+      console.error('   DATABASE_URL format check:', process.env.DATABASE_URL ? 'URL exists' : 'URL missing');
+      
+      // Additional diagnostics
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const generatedClientPath = path.join(cwd, 'node_modules', '.prisma', 'client');
+        console.error('   Generated client exists:', fs.existsSync(generatedClientPath));
+      } catch (diagError) {
+        // Ignore diagnostic errors
+      }
+      
+      return null;
+    }
   } catch (error) {
     console.error('❌ Error initializing Prisma:', error.message);
     console.error('   Stack:', error.stack);
