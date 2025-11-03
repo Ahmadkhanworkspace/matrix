@@ -268,6 +268,110 @@ app.get('/api/system/status', async (req, res) => {
   }
 });
 
+// Debug endpoint for Prisma initialization
+app.get('/api/debug/prisma', (req, res) => {
+  const debug = {
+    env: {
+      DATABASE_URL: process.env.DATABASE_URL ? 'SET' : 'NOT SET',
+      USE_PRISMA: process.env.USE_PRISMA || 'not set',
+      NODE_ENV: process.env.NODE_ENV || 'not set'
+    },
+    paths: {
+      cwd: process.cwd(),
+      __dirname: __dirname
+    },
+    moduleResolution: {},
+    filesystem: {},
+    initialization: {}
+  };
+
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const cwd = process.cwd();
+    
+    // Check filesystem
+    const rootNodeModules = path.join(cwd, 'node_modules');
+    const backendNodeModules = path.join(cwd, 'backend', 'node_modules');
+    const prismaDir = path.join(rootNodeModules, '@prisma');
+    const prismaClientDir = path.join(rootNodeModules, '@prisma', 'client');
+    const backendPrismaDir = path.join(backendNodeModules, '@prisma');
+    
+    debug.filesystem = {
+      rootNodeModules: {
+        exists: fs.existsSync(rootNodeModules),
+        path: rootNodeModules
+      },
+      backendNodeModules: {
+        exists: fs.existsSync(backendNodeModules),
+        path: backendNodeModules
+      },
+      prismaDir: {
+        exists: fs.existsSync(prismaDir),
+        path: prismaDir,
+        contents: fs.existsSync(prismaDir) ? fs.readdirSync(prismaDir) : []
+      },
+      prismaClientDir: {
+        exists: fs.existsSync(prismaClientDir),
+        path: prismaClientDir
+      },
+      backendPrismaDir: {
+        exists: fs.existsSync(backendPrismaDir),
+        path: backendPrismaDir
+      }
+    };
+
+    // Try module resolution
+    try {
+      if (typeof require.resolve.paths === 'function') {
+        const paths = require.resolve.paths('@prisma/client') || [];
+        debug.moduleResolution.searchPaths = paths.slice(0, 5);
+      }
+    } catch (e) {
+      debug.moduleResolution.pathsError = e.message;
+    }
+
+    // Try to require
+    const pathsToTry = ['@prisma/client', '../../node_modules/@prisma/client', '../../../node_modules/@prisma/client'];
+    for (const p of pathsToTry) {
+      try {
+        const resolved = require.resolve(p);
+        debug.moduleResolution.lastSuccessfulPath = p;
+        debug.moduleResolution.lastResolvedPath = resolved;
+        try {
+          const PrismaClient = require(p).PrismaClient;
+          debug.moduleResolution.canRequire = true;
+          debug.moduleResolution.hasPrismaClient = typeof PrismaClient === 'function';
+        } catch (reqErr) {
+          debug.moduleResolution.requireError = reqErr.message;
+        }
+        break;
+      } catch (e) {
+        debug.moduleResolution.lastError = { path: p, error: e.message, code: e.code };
+      }
+    }
+
+    // Try initialization
+    try {
+      const { prisma } = require('./config/databaseHybrid');
+      const client = prisma();
+      debug.initialization = {
+        canCallPrisma: true,
+        returnsClient: !!client,
+        clientType: client ? typeof client : 'null'
+      };
+    } catch (initErr) {
+      debug.initialization.error = initErr.message;
+      debug.initialization.stack = initErr.stack;
+    }
+  } catch (error) {
+    debug.error = error.message;
+    debug.stack = error.stack;
+  }
+
+  res.json(debug);
+});
+
 // Initialize cron jobs on startup
 async function initializeSystem() {
   try {
