@@ -77,6 +77,10 @@ const initPrisma = () => {
     console.log('🔧 Attempting to initialize Prisma client...');
     console.log('   DATABASE_URL exists:', !!process.env.DATABASE_URL);
     
+    // Import path and fs early
+    const path = require('path');
+    const fs = require('fs');
+    
     // Try to require Prisma client - check multiple paths
     let PrismaClient;
     let resolvedPrismaClientPath = null;
@@ -90,7 +94,14 @@ const initPrisma = () => {
       console.log(`   Node module search paths (first 3):`, paths.slice(0, 3).join(', '));
     }
     
+    // Try to load PrismaClient directly from generated client first, then fallback to @prisma/client
     const pathsToTry = [
+      // Direct paths to generated client index.js (preferred - these should have real code)
+      path.join(cwd, 'backend', 'node_modules', '.prisma', 'client', 'index.js'),
+      path.join(cwd, 'node_modules', '.prisma', 'client', 'index.js'),
+      '/app/backend/node_modules/.prisma/client/index.js',
+      '/app/node_modules/.prisma/client/index.js',
+      // Fallback to @prisma/client package (may have stub)
       '@prisma/client',
       '../../node_modules/@prisma/client',
       '../../../node_modules/@prisma/client',
@@ -99,19 +110,50 @@ const initPrisma = () => {
     ];
     
     let lastError;
-    for (const path of pathsToTry) {
+    for (const tryPath of pathsToTry) {
       try {
-        const resolved = require.resolve(path);
+        const resolved = require.resolve(tryPath, { paths: [cwd, path.join(cwd, 'backend')] });
         console.log(`   ✅ Resolved Prisma client path: ${resolved}`);
         resolvedPrismaClientPath = resolved;
-        PrismaClient = require(path).PrismaClient;
-        console.log(`   ✅ Successfully required Prisma client from: ${path}`);
-        break;
+        
+        // Try to get PrismaClient from the resolved module
+        const module = require(tryPath);
+        if (module.PrismaClient) {
+          PrismaClient = module.PrismaClient;
+        } else if (module.default && module.default.PrismaClient) {
+          PrismaClient = module.default.PrismaClient;
+        } else if (typeof module === 'function') {
+          // If the module itself is PrismaClient
+          PrismaClient = module;
+        }
+        
+        if (PrismaClient) {
+          console.log(`   ✅ Successfully required Prisma client from: ${tryPath}`);
+          // Verify it's not a stub by checking if it's a real constructor
+          try {
+            const testInstance = new PrismaClient();
+            if (testInstance && typeof testInstance.$connect === 'function') {
+              console.log(`   ✅ Verified PrismaClient is real (not stub)`);
+            } else {
+              console.log(`   ⚠️  PrismaClient may be stub, trying next path...`);
+              PrismaClient = null;
+              continue;
+            }
+          } catch (testError) {
+            if (testError.message && testError.message.includes('did not initialize')) {
+              console.log(`   ⚠️  PrismaClient is stub, trying next path...`);
+              PrismaClient = null;
+              continue;
+            }
+            // Other errors might be OK (e.g., connection errors)
+          }
+          break;
+        }
       } catch (requireError) {
         lastError = requireError;
         // Only log if it's not a "module not found" error to reduce noise
         if (!requireError.message.includes('Cannot find module')) {
-          console.log(`   ⚠️  Failed to require from ${path}: ${requireError.message}`);
+          console.log(`   ⚠️  Failed to require from ${tryPath}: ${requireError.message}`);
         }
         continue;
       }
@@ -120,8 +162,6 @@ const initPrisma = () => {
     // Determine where Prisma will look for generated client
     // Prisma looks for .prisma/client in the same node_modules as @prisma/client
     if (resolvedPrismaClientPath) {
-      const path = require('path');
-      const fs = require('fs');
       
       // require.resolve returns the main entry file, need to get the package directory
       // @prisma/client resolves to default.js, so go up to the package root
