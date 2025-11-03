@@ -7,7 +7,7 @@ cmds = [
   "npm install --save @prisma/client prisma",
   "cd backend && npm install --save @prisma/client prisma && cd ..",
   "echo '=== Generating Prisma Client in backend (CRITICAL) ==='",
-  "cd backend && npx prisma generate --schema=../prisma/schema.prisma && cd ..",
+  "cd backend && PRISMA_GENERATE_DATAPROXY=false npx prisma generate --schema=../prisma/schema.prisma 2>&1 && cd ..",
   "echo '=== Verifying Prisma Generation ==='",
   "ls -la backend/node_modules/.prisma/client/ 2>&1 | head -20 || echo 'Generated client directory not found'",
   "cat backend/node_modules/.prisma/client/index.js 2>&1 | head -5 || echo 'index.js not found'",
