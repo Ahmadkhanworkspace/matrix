@@ -120,17 +120,42 @@ const initPrisma = () => {
     // Determine where Prisma will look for generated client
     // Prisma looks for .prisma/client in the same node_modules as @prisma/client
     if (resolvedPrismaClientPath) {
-      const prismaClientDir = require('path').dirname(resolvedPrismaClientPath);
-      const expectedGeneratedPath = require('path').join(prismaClientDir, '..', '..', '.prisma', 'client');
-      console.log(`   Prisma will look for generated client at: ${expectedGeneratedPath}`);
+      const path = require('path');
       const fs = require('fs');
+      
+      // require.resolve returns the main entry file, need to get the package directory
+      // @prisma/client resolves to default.js, so go up to the package root
+      let prismaClientPackageDir = path.dirname(resolvedPrismaClientPath);
+      // If it's default.js, we're in the package, otherwise go up
+      if (path.basename(prismaClientPackageDir) === 'client') {
+        // We're in /app/backend/node_modules/@prisma/client
+        // Prisma looks for .prisma/client in the same node_modules
+        // So: /app/backend/node_modules/.prisma/client
+        prismaClientPackageDir = path.dirname(prismaClientPackageDir); // Goes to @prisma
+        prismaClientPackageDir = path.dirname(prismaClientPackageDir); // Goes to node_modules
+      }
+      
+      const expectedGeneratedPath = path.join(prismaClientPackageDir, '.prisma', 'client');
+      console.log(`   Resolved @prisma/client from: ${resolvedPrismaClientPath}`);
+      console.log(`   Prisma will look for generated client at: ${expectedGeneratedPath}`);
+      
       const generatedExists = fs.existsSync(expectedGeneratedPath);
       console.log(`   Generated client exists at expected location: ${generatedExists}`);
+      
       if (!generatedExists) {
         // Try to copy/link it there
-        const sourceGeneratedPath = require('path').join(cwd, 'node_modules', '.prisma', 'client');
-        if (fs.existsSync(sourceGeneratedPath)) {
-          const targetDir = require('path').join(prismaClientDir, '..', '..', '.prisma');
+        const sourceGeneratedPath = path.join(cwd, 'node_modules', '.prisma', 'client');
+        const backendGeneratedPath = path.join(cwd, 'backend', 'node_modules', '.prisma', 'client');
+        
+        let sourcePath = null;
+        if (fs.existsSync(backendGeneratedPath)) {
+          sourcePath = backendGeneratedPath;
+        } else if (fs.existsSync(sourceGeneratedPath)) {
+          sourcePath = sourceGeneratedPath;
+        }
+        
+        if (sourcePath) {
+          const targetDir = path.dirname(expectedGeneratedPath);
           try {
             if (!fs.existsSync(targetDir)) {
               fs.mkdirSync(targetDir, { recursive: true });
@@ -146,20 +171,27 @@ const initPrisma = () => {
                 }
                 fs.readdirSync(src).forEach(childItemName => {
                   copyRecursiveSync(
-                    require('path').join(src, childItemName),
-                    require('path').join(dest, childItemName)
+                    path.join(src, childItemName),
+                    path.join(dest, childItemName)
                   );
                 });
               } else {
                 fs.copyFileSync(src, dest);
               }
             };
-            copyRecursiveSync(sourceGeneratedPath, expectedGeneratedPath);
-            console.log(`   ✅ Copied generated client to expected location`);
+            copyRecursiveSync(sourcePath, expectedGeneratedPath);
+            console.log(`   ✅ Copied generated client from ${sourcePath} to ${expectedGeneratedPath}`);
           } catch (copyError) {
             console.error(`   ⚠️  Failed to copy generated client: ${copyError.message}`);
+            console.error(`   Stack: ${copyError.stack}`);
           }
+        } else {
+          console.error(`   ⚠️  No source generated client found to copy`);
+          console.error(`   Checked: ${sourceGeneratedPath}`);
+          console.error(`   And: ${backendGeneratedPath}`);
         }
+      } else {
+        console.log(`   ✅ Generated client already in correct location`);
       }
     }
     
