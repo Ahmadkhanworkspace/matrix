@@ -6,16 +6,15 @@ cmds = [
   "npm ci",
   "npm install --save @prisma/client prisma",
   "cd backend && npm install --save @prisma/client prisma && cd ..",
-  "echo '=== Generating Prisma Client (Root) ==='",
-  "npx prisma generate --schema=./prisma/schema.prisma",
-  "echo '=== Generating Prisma Client (Backend) ==='",
-  "cd backend && npx prisma generate --schema=../prisma/schema.prisma && cd ..",
-  "echo '=== Prisma Generation Check ==='",
-  "test -d node_modules/.prisma/client && echo '✅ .prisma/client generated in root' || echo '❌ .prisma/client missing in root'",
-  "test -d backend/node_modules/.prisma/client && echo '✅ .prisma/client generated in backend' || echo '❌ .prisma/client missing in backend'",
-  "test -d node_modules/@prisma/client && echo '✅ @prisma/client found in root' || echo '❌ @prisma/client missing in root'",
-  "test -d backend/node_modules/@prisma/client && echo '✅ @prisma/client found in backend' || (echo 'Linking @prisma/client to backend...' && cd backend && mkdir -p node_modules/@prisma && ln -sf ../../node_modules/@prisma/client node_modules/@prisma/client 2>&1 || cp -r ../node_modules/@prisma node_modules/@prisma 2>&1 || echo 'Link/copy failed' && cd ..)",
-  "echo 'Prisma setup complete'"
+  "echo '=== Generating Prisma Client (from root) ==='",
+  "PRISMA_SCHEMA_PATH=./prisma/schema.prisma npx prisma generate --schema=./prisma/schema.prisma",
+  "echo '=== Generating Prisma Client (from backend context) ==='",
+  "cd backend && PRISMA_SCHEMA_PATH=../prisma/schema.prisma npx prisma generate --schema=../prisma/schema.prisma && cd ..",
+  "echo '=== Verifying Prisma Generation ==='",
+  "test -d node_modules/.prisma/client && echo '✅ .prisma/client in root' || echo '❌ .prisma/client missing in root'",
+  "test -d backend/node_modules/.prisma/client && echo '✅ .prisma/client in backend' || (echo 'Copying to backend...' && cd backend && mkdir -p node_modules/.prisma && cp -r ../node_modules/.prisma/client node_modules/.prisma/client 2>&1 && echo '✅ Copied' || echo '❌ Copy failed')",
+  "cd .. && test -d backend/node_modules/@prisma/client && echo '✅ @prisma/client in backend' || (echo 'Linking @prisma/client...' && cd backend && mkdir -p node_modules/@prisma && ln -sf ../../node_modules/@prisma/client node_modules/@prisma/client 2>&1 || cp -r ../node_modules/@prisma node_modules/@prisma 2>&1 || echo '❌ Failed')",
+  "cd .. && echo 'Prisma setup complete'"
 ]
 
 [phases.build]
