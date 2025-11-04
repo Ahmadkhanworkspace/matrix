@@ -350,13 +350,9 @@ const initPrisma = () => {
         } catch (connError) {
           console.log(`   ❌ ${connInfo.name} failed: ${connError.message.substring(0, 100)}`);
           
-          // Clean up failed client instance
+          // Clean up failed client instance (if any was created)
           if (clientInstance) {
-            try {
-              await clientInstance.$disconnect();
-            } catch (e) {
-              // Ignore disconnect errors
-            }
+            // Disconnect will happen lazily, no need to await here
             clientInstance = null;
           }
           
