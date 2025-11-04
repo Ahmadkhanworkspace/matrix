@@ -73,18 +73,18 @@ const MatrixSettings: React.FC = () => {
       const response = await api.matrix.getMatrixConfigs();
       if (response.success && response.data) {
         // Map backend response to frontend format
-        const mappedMatrices = response.data.map((config: any) => ({
+        const mappedMatrices: MatrixConfig[] = response.data.map((config: any) => ({
           id: config.id || config.level || Date.now(),
           name: config.name,
           levels: config.matrixDepth || config.levels || 10,
           width: config.matrixWidth || config.width || 3,
           fee: config.price || config.fee || 100,
-          matrix_type: config.matrix_type || 'forced',
-          payout_type: config.payout_type || 'level',
+          matrix_type: (config.matrix_type || 'forced') as 'forced' | 'unilevel' | 'binary',
+          payout_type: (config.payout_type || 'level') as 'level' | 'cycle' | 'hybrid',
           spillover_enabled: config.spillover_enabled !== undefined ? config.spillover_enabled : true,
           reentry_enabled: config.reentry_enabled !== undefined ? config.reentry_enabled : true,
           email_notifications: config.email_notifications !== undefined ? config.email_notifications : true,
-          status: config.isActive ? 'active' : 'inactive',
+          status: (config.isActive ? 'active' : 'inactive') as 'active' | 'inactive',
           created_at: config.createdAt || config.created_at || new Date().toISOString(),
           total_positions: Math.pow(config.matrixWidth || config.width || 3, config.matrixDepth || config.levels || 10),
           filled_positions: config.filled_positions || 0,
