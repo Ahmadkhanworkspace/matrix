@@ -402,16 +402,22 @@ router.get('/stats', authenticateToken, async (req, res) => {
     const USE_PRISMA = process.env.USE_PRISMA === 'true' || (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('supabase'));
     
     if (USE_PRISMA) {
-      // Use Prisma for Supabase/PostgreSQL
+      // Use Prisma for Supabase/PostgreSQL - use shared prisma client
       try {
-        const { PrismaClient } = require('@prisma/client');
-        const prisma = new PrismaClient();
+        const { prisma } = require('../config/databaseHybrid');
+        const prismaClient = prisma();
+        if (!prismaClient) {
+          throw new Error('Prisma client not initialized');
+        }
 
-        // Get total earnings (sum of all completed transactions with type EARNING)
-        const earningsAggregate = await prisma.transaction.aggregate({
+        // Get total earnings (sum of all completed bonus transactions)
+        // Earnings include: REFERRAL_BONUS, MATRIX_BONUS, MATCHING_BONUS, CYCLE_BONUS
+        const earningsAggregate = await prismaClient.transaction.aggregate({
           where: {
             status: 'COMPLETED',
-            type: 'EARNING'
+            type: {
+              in: ['REFERRAL_BONUS', 'MATRIX_BONUS', 'MATCHING_BONUS', 'CYCLE_BONUS']
+            }
           },
           _sum: {
             amount: true
@@ -420,7 +426,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
         const totalEarnings = parseFloat(earningsAggregate._sum.amount || 0);
 
         // Get pending deposits
-        const pendingDepositsAggregate = await prisma.transaction.aggregate({
+        const pendingDepositsAggregate = await prismaClient.transaction.aggregate({
           where: {
             status: 'PENDING',
             type: 'DEPOSIT'
@@ -432,7 +438,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
         const pendingDeposits = parseFloat(pendingDepositsAggregate._sum.amount || 0);
 
         // Get completed withdrawals
-        const withdrawalsAggregate = await prisma.transaction.aggregate({
+        const withdrawalsAggregate = await prismaClient.transaction.aggregate({
           where: {
             status: 'COMPLETED',
             type: 'WITHDRAWAL'
@@ -444,7 +450,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
         const completedWithdrawals = parseFloat(withdrawalsAggregate._sum.amount || 0);
 
         // Get total revenue (sum of all deposits)
-        const revenueAggregate = await prisma.transaction.aggregate({
+        const revenueAggregate = await prismaClient.transaction.aggregate({
           where: {
             type: 'DEPOSIT'
           },
@@ -457,7 +463,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
         // Get revenue this month
         const monthAgo = new Date();
         monthAgo.setMonth(monthAgo.getMonth() - 1);
-        const revenueThisMonthAggregate = await prisma.transaction.aggregate({
+        const revenueThisMonthAggregate = await prismaClient.transaction.aggregate({
           where: {
             type: 'DEPOSIT',
             createdAt: {
@@ -473,7 +479,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
         // Get revenue this week
         const weekAgo = new Date();
         weekAgo.setDate(weekAgo.getDate() - 7);
-        const revenueThisWeekAggregate = await prisma.transaction.aggregate({
+        const revenueThisWeekAggregate = await prismaClient.transaction.aggregate({
           where: {
             type: 'DEPOSIT',
             createdAt: {
@@ -485,8 +491,6 @@ router.get('/stats', authenticateToken, async (req, res) => {
           }
         });
         const revenueThisWeek = parseFloat(revenueThisWeekAggregate._sum.amount || 0);
-
-        await prisma.$disconnect();
 
         res.json({
           success: true,
