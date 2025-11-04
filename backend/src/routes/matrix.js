@@ -76,8 +76,14 @@ router.get('/level-stats', authenticateToken, async (req, res) => {
           }
         });
       } catch (prismaError) {
-        console.error('Prisma error:', prismaError);
-        throw prismaError;
+        console.error('Prisma error in matrix level stats:', prismaError);
+        console.error('Prisma error message:', prismaError.message);
+        console.error('Prisma error stack:', prismaError.stack);
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to get matrix level statistics',
+          details: prismaError.message || 'Unknown Prisma error'
+        });
       }
     } else {
       // Use MySQL (original code)
@@ -105,10 +111,12 @@ router.get('/level-stats', authenticateToken, async (req, res) => {
     }
   } catch (error) {
     console.error('Get matrix level stats error:', error);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
       error: 'Failed to get matrix level statistics',
-      details: error.message
+      details: error.message || 'Unknown error'
     });
   }
 });
