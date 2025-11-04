@@ -326,7 +326,7 @@ const initPrisma = () => {
         });
       }
       
-      // Try each connection URL
+      // Try each connection URL - create client but don't test connection yet (lazy connection)
       let clientInstance = null;
       let workingUrl = null;
       
@@ -338,24 +338,14 @@ const initPrisma = () => {
           // Temporarily set DATABASE_URL for this attempt
           process.env.DATABASE_URL = connInfo.url;
           
-          // Create PrismaClient instance
+          // Create PrismaClient instance (don't test connection yet - lazy connection)
           clientInstance = new PrismaClient({
             log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
           });
           
-          // Test connection with a quick query
-          console.log(`   ⏳ Testing ${connInfo.name} connection...`);
-          const testPromise = clientInstance.$queryRaw`SELECT 1`;
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Connection timeout')), 5000)
-          );
-          
-          await Promise.race([testPromise, timeoutPromise]);
-          
-          // Connection successful!
-          console.log(`   ✅ ${connInfo.name} connected successfully!`);
+          console.log(`   ✅ ${connInfo.name} client created successfully`);
           workingUrl = connInfo;
-          break; // Stop trying other URLs
+          break; // Use first successful client creation
           
         } catch (connError) {
           console.log(`   ❌ ${connInfo.name} failed: ${connError.message.substring(0, 100)}`);
@@ -529,9 +519,15 @@ const transaction = async (callback) => {
   }
 };
 
+// Get Prisma client (synchronous wrapper - returns client immediately, connection is lazy)
+const prisma = () => {
+  if (prismaClient) return prismaClient;
+  return initPrisma();
+};
+
 module.exports = {
   pool: () => initMySQL(),
-  prisma: () => initPrisma(),
+  prisma: prisma,
   supabase: () => getSupabase(),
   query,
   queryOne,
