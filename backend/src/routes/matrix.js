@@ -115,19 +115,48 @@ router.get('/level-stats', authenticateToken, async (req, res) => {
 // Get all matrix configurations
 router.get('/configs', authenticateToken, async (req, res) => {
   try {
-    const configs = await query(
-      'SELECT * FROM matrix_configs ORDER BY created_at DESC'
-    );
+    const USE_PRISMA = process.env.USE_PRISMA === 'true' || (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('supabase'));
+    
+    if (USE_PRISMA) {
+      // Use Prisma for Supabase/PostgreSQL
+      try {
+        const { prisma } = require('../config/databaseHybrid');
+        const prismaClient = prisma();
+        if (!prismaClient) {
+          throw new Error('Prisma client not initialized');
+        }
 
-    res.json({
-      success: true,
-      data: configs
-    });
+        const configs = await prismaClient.matrixConfig.findMany({
+          orderBy: {
+            createdAt: 'desc'
+          }
+        });
+
+        res.json({
+          success: true,
+          data: configs
+        });
+      } catch (prismaError) {
+        console.error('Prisma error in get matrix configs:', prismaError);
+        throw prismaError;
+      }
+    } else {
+      // Use MySQL (original code)
+      const configs = await query(
+        'SELECT * FROM matrix_configs ORDER BY created_at DESC'
+      );
+
+      res.json({
+        success: true,
+        data: configs
+      });
+    }
   } catch (error) {
     console.error('Get matrix configs error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to get matrix configurations'
+      error: 'Failed to get matrix configurations',
+      details: error.message
     });
   }
 });
@@ -184,23 +213,75 @@ router.post('/configs', authenticateToken, async (req, res) => {
       });
     }
 
-    const result = await query(
-      `INSERT INTO matrix_configs (name, levels, width, fee, matrix_type, payout_type, 
-       spillover_enabled, reentry_enabled, email_notifications) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, levels, width, fee, matrix_type, payout_type, spillover_enabled, reentry_enabled, email_notifications]
-    );
+    const USE_PRISMA = process.env.USE_PRISMA === 'true' || (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('supabase'));
+    
+    if (USE_PRISMA) {
+      // Use Prisma for Supabase/PostgreSQL
+      try {
+        const { prisma } = require('../config/databaseHybrid');
+        const prismaClient = prisma();
+        if (!prismaClient) {
+          throw new Error('Prisma client not initialized');
+        }
 
-    res.status(201).json({
-      success: true,
-      message: 'Matrix configuration created successfully',
-      data: { id: result.insertId }
-    });
+        // Note: The Prisma schema's MatrixConfig model has different fields
+        // We'll create a matrix config entry. Since the schema expects 'level' as unique,
+        // we'll use the 'levels' value as the level number
+        // Map frontend fields to Prisma schema fields:
+        // - levels -> level (unique identifier)
+        // - width -> matrixWidth
+        // - fee -> price
+        // - levels -> matrixDepth (depth of the matrix)
+        
+        const matrixConfig = await prismaClient.matrixConfig.create({
+          data: {
+            level: parseInt(levels) || 1, // Use levels as the level number
+            name: name,
+            price: parseFloat(fee),
+            currency: 'USD',
+            matrixWidth: parseInt(width) || 3,
+            matrixDepth: parseInt(levels) || 10,
+            isActive: true
+          }
+        });
+
+        res.status(201).json({
+          success: true,
+          message: 'Matrix configuration created successfully',
+          data: { id: matrixConfig.id, level: matrixConfig.level }
+        });
+      } catch (prismaError) {
+        console.error('Prisma error in create matrix config:', prismaError);
+        // If it's a unique constraint error (level already exists), provide helpful message
+        if (prismaError.code === 'P2002') {
+          return res.status(400).json({
+            success: false,
+            error: `Matrix level ${levels} already exists. Please choose a different level.`
+          });
+        }
+        throw prismaError;
+      }
+    } else {
+      // Use MySQL (original code)
+      const result = await query(
+        `INSERT INTO matrix_configs (name, levels, width, fee, matrix_type, payout_type, 
+         spillover_enabled, reentry_enabled, email_notifications) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [name, levels, width, fee, matrix_type, payout_type, spillover_enabled, reentry_enabled, email_notifications]
+      );
+
+      res.status(201).json({
+        success: true,
+        message: 'Matrix configuration created successfully',
+        data: { id: result.insertId }
+      });
+    }
   } catch (error) {
     console.error('Create matrix config error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to create matrix configuration'
+      error: 'Failed to create matrix configuration',
+      details: error.message
     });
   }
 });

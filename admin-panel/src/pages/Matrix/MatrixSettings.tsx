@@ -23,6 +23,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { useCurrency } from '../../contexts/CurrencyContext';
+import api from '../../api';
 
 interface MatrixConfig {
   id: number;
@@ -69,12 +70,32 @@ const MatrixSettings: React.FC = () => {
     try {
       setLoading(true);
       // Fetch matrices from backend
-      // const response = await api.matrix.getAllMatrixConfigs();
-      // if (response.success) {
-      //   setMatrices(response.data);
-      // }
+      const response = await api.matrix.getMatrixConfigs();
+      if (response.success && response.data) {
+        // Map backend response to frontend format
+        const mappedMatrices = response.data.map((config: any) => ({
+          id: config.id || config.level || Date.now(),
+          name: config.name,
+          levels: config.matrixDepth || config.levels || 10,
+          width: config.matrixWidth || config.width || 3,
+          fee: config.price || config.fee || 100,
+          matrix_type: config.matrix_type || 'forced',
+          payout_type: config.payout_type || 'level',
+          spillover_enabled: config.spillover_enabled !== undefined ? config.spillover_enabled : true,
+          reentry_enabled: config.reentry_enabled !== undefined ? config.reentry_enabled : true,
+          email_notifications: config.email_notifications !== undefined ? config.email_notifications : true,
+          status: config.isActive ? 'active' : 'inactive',
+          created_at: config.createdAt || config.created_at || new Date().toISOString(),
+          total_positions: Math.pow(config.matrixWidth || config.width || 3, config.matrixDepth || config.levels || 10),
+          filled_positions: config.filled_positions || 0,
+          total_earnings: config.total_earnings || 0,
+          cycle_count: config.cycle_count || 0
+        }));
+        setMatrices(mappedMatrices);
+        return;
+      }
       
-      // Mock data for now
+      // Fallback to mock data if API fails
       setMatrices([
         {
           id: 1,
@@ -122,59 +143,35 @@ const MatrixSettings: React.FC = () => {
 
   const handleCreateMatrix = async () => {
     try {
+      // Validate required fields
+      if (!newMatrix.name || !newMatrix.fee) {
+        alert('Please fill in all required fields (Name and Fee)');
+        return;
+      }
+
       // Create matrix in backend
-      // const response = await api.matrix.createMatrixConfig(newMatrix);
-      // if (response.success) {
-      //   fetchMatrices();
-      //   setShowCreateModal(false);
-      //   setNewMatrix({
-      //     name: '',
-      //     levels: 3,
-      //     width: 3,
-      //     fee: 100,
-      //     matrix_type: 'forced',
-      //     payout_type: 'level',
-      //     spillover_enabled: true,
-      //     reentry_enabled: true,
-      //     email_notifications: true
-      //   });
-      // }
-      
-      // Mock creation
-      const newMatrixConfig: MatrixConfig = {
-        id: Date.now(),
-        name: newMatrix.name,
-        levels: newMatrix.levels,
-        width: newMatrix.width,
-        fee: newMatrix.fee,
-        matrix_type: newMatrix.matrix_type,
-        payout_type: newMatrix.payout_type,
-        spillover_enabled: newMatrix.spillover_enabled,
-        reentry_enabled: newMatrix.reentry_enabled,
-        email_notifications: newMatrix.email_notifications,
-        status: 'active',
-        created_at: new Date().toISOString(),
-        total_positions: Math.pow(newMatrix.width, newMatrix.levels),
-        filled_positions: 0,
-        total_earnings: 0,
-        cycle_count: 0
-      };
-      
-      setMatrices(prev => [...prev, newMatrixConfig]);
-      setShowCreateModal(false);
-      setNewMatrix({
-        name: '',
-        levels: 3,
-        width: 3,
-        fee: 100,
-        matrix_type: 'forced',
-        payout_type: 'level',
-        spillover_enabled: true,
-        reentry_enabled: true,
-        email_notifications: true
-      });
-    } catch (error) {
+      const response = await api.matrix.createMatrixConfig(newMatrix);
+      if (response.success) {
+        alert('Matrix created successfully!');
+        fetchMatrices();
+        setShowCreateModal(false);
+        setNewMatrix({
+          name: '',
+          levels: 3,
+          width: 3,
+          fee: 100,
+          matrix_type: 'forced',
+          payout_type: 'level',
+          spillover_enabled: true,
+          reentry_enabled: true,
+          email_notifications: true
+        });
+      } else {
+        alert(`Failed to create matrix: ${response.error || 'Unknown error'}`);
+      }
+    } catch (error: any) {
       console.error('Failed to create matrix:', error);
+      alert(`Failed to create matrix: ${error.message || 'Unknown error'}`);
     }
   };
 
