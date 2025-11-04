@@ -23,7 +23,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { useCurrency } from '../../contexts/CurrencyContext';
-import api from '../../api';
+import { api } from '../../api';
 
 interface MatrixConfig {
   id: number;
