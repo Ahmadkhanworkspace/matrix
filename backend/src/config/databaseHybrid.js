@@ -310,12 +310,11 @@ const initPrisma = () => {
                                originalDatabaseUrl.includes('postgres.ddpjrwoyjphumeenabyb');
       
       if (isPoolingFormat) {
-        // Already in pooling format, use as-is (ensure SSL)
-        const params = originalDatabaseUrl.includes('?') ? originalDatabaseUrl.split('?')[1] : '';
-        const hasSsl = params.includes('sslmode');
-        const poolingUrl = hasSsl 
-          ? originalDatabaseUrl 
-          : `${originalDatabaseUrl}${params ? '&' : '?'}sslmode=require`;
+        // Already in pooling format, use as-is (ensure SSL and pgbouncer=true)
+        const urlObj = new URL(originalDatabaseUrl);
+        urlObj.searchParams.set('sslmode', 'require');
+        urlObj.searchParams.set('pgbouncer', 'true'); // Disable prepared statements for pgBouncer
+        const poolingUrl = urlObj.toString();
         
         connectionUrls.push({
           name: 'Connection Pooling (6543) - Original Format',
@@ -338,7 +337,7 @@ const initPrisma = () => {
           // Use the format: postgresql://postgres.[PROJECT]:[PASSWORD]@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres
           connectionUrls.push({
             name: 'Connection Pooling (6543) - Converted Format',
-            url: `postgresql://postgres.${projectRef}:${decodedPassword}@aws-1-ap-southeast-1.pooler.supabase.com:6543/${database}?sslmode=require`,
+            url: `postgresql://postgres.${projectRef}:${decodedPassword}@aws-1-ap-southeast-1.pooler.supabase.com:6543/${database}?sslmode=require&pgbouncer=true`,
             port: 6543
           });
         } else {
@@ -349,7 +348,7 @@ const initPrisma = () => {
             const params = originalDatabaseUrl.includes('?') ? originalDatabaseUrl.split('?')[1] : '';
             connectionUrls.push({
               name: 'Connection Pooling (6543) - Simple Port Change',
-              url: `postgresql://${user}:${password}@${host}:6543/${database}${params ? '?' + params : ''}${params ? '&' : '?'}sslmode=require`,
+              url: `postgresql://${user}:${password}@${host}:6543/${database}${params ? '?' + params + '&' : '?'}sslmode=require&pgbouncer=true`,
               port: 6543
             });
           } else {
