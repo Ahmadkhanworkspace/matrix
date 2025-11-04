@@ -301,22 +301,106 @@ const initPrisma = () => {
       console.log('   ✅ Generated Prisma client found, creating instance...');
       console.log(`   DATABASE_URL length: ${process.env.DATABASE_URL ? process.env.DATABASE_URL.length : 0}`);
       
-      // Try to create PrismaClient with explicit error handling
-      let clientInstance;
-      try {
-        console.log('   Attempting new PrismaClient()...');
-        clientInstance = new PrismaClient({
-          log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+      // Connection pooling only (6543) - No direct connection fallback
+      const originalDatabaseUrl = process.env.DATABASE_URL;
+      const connectionUrls = [];
+      
+      // Parse the original URL
+      const urlMatch = originalDatabaseUrl.match(/postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/);
+      if (urlMatch) {
+        const [, user, password, host, port, database] = urlMatch;
+        const params = originalDatabaseUrl.includes('?') ? originalDatabaseUrl.split('?')[1] : '';
+        
+        // Only use connection pooling (6543)
+        connectionUrls.push({
+          name: 'Connection Pooling (6543)',
+          url: `postgresql://${user}:${password}@${host}:6543/${database}${params ? '?' + params : ''}${params ? '&' : '?'}sslmode=require`,
+          port: 6543
         });
-        console.log('   ✅ PrismaClient constructor succeeded');
+      } else {
+        // If URL parsing fails, use original URL as-is
+        connectionUrls.push({
+          name: 'Original URL',
+          url: originalDatabaseUrl,
+          port: 'unknown'
+        });
+      }
+      
+      // Try each connection URL
+      let clientInstance = null;
+      let workingUrl = null;
+      
+      for (const connInfo of connectionUrls) {
+        try {
+          console.log(`   🔄 Trying ${connInfo.name}...`);
+          console.log(`      URL: ${connInfo.url.replace(/:[^:@]+@/, ':****@')}`); // Hide password
+          
+          // Temporarily set DATABASE_URL for this attempt
+          process.env.DATABASE_URL = connInfo.url;
+          
+          // Create PrismaClient instance
+          clientInstance = new PrismaClient({
+            log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+          });
+          
+          // Test connection with a quick query
+          console.log(`   ⏳ Testing ${connInfo.name} connection...`);
+          const testPromise = clientInstance.$queryRaw`SELECT 1`;
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Connection timeout')), 5000)
+          );
+          
+          await Promise.race([testPromise, timeoutPromise]);
+          
+          // Connection successful!
+          console.log(`   ✅ ${connInfo.name} connected successfully!`);
+          workingUrl = connInfo;
+          break; // Stop trying other URLs
+          
+        } catch (connError) {
+          console.log(`   ❌ ${connInfo.name} failed: ${connError.message.substring(0, 100)}`);
+          
+          // Clean up failed client instance
+          if (clientInstance) {
+            try {
+              await clientInstance.$disconnect();
+            } catch (e) {
+              // Ignore disconnect errors
+            }
+            clientInstance = null;
+          }
+          
+          // Continue to next connection URL
+          continue;
+        }
+      }
+      
+      // Restore original DATABASE_URL
+      process.env.DATABASE_URL = originalDatabaseUrl;
+      
+      // If no connection worked, try one more time with original URL
+      if (!clientInstance) {
+        console.log('   ⚠️  All connection attempts failed, trying original DATABASE_URL...');
+        try {
+          clientInstance = new PrismaClient({
+            log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+          });
+          console.log('   ✅ PrismaClient constructor succeeded');
+          console.log(`   Client instance type: ${typeof clientInstance}`);
+          console.log(`   Has $connect: ${typeof clientInstance.$connect === 'function'}`);
+        } catch (constructorErr) {
+          console.error('❌ PrismaClient constructor threw error:', constructorErr.message);
+          console.error('   Error name:', constructorErr.name);
+          console.error('   Error code:', constructorErr.code);
+          console.error('   Full stack:', constructorErr.stack);
+          return null;
+        }
+      } else {
+        // Log which connection method is being used
+        console.log(`   🎯 Using ${workingUrl.name} for database connection`);
+        console.log(`   ✅ PrismaClient constructor succeeded`);
         console.log(`   Client instance type: ${typeof clientInstance}`);
         console.log(`   Has $connect: ${typeof clientInstance.$connect === 'function'}`);
-      } catch (constructorErr) {
-        console.error('❌ PrismaClient constructor threw error:', constructorErr.message);
-        console.error('   Error name:', constructorErr.name);
-        console.error('   Error code:', constructorErr.code);
-        console.error('   Full stack:', constructorErr.stack);
-        return null;
       }
       
       // Verify the client is actually functional (not just created)
