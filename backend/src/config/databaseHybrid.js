@@ -301,29 +301,66 @@ const initPrisma = () => {
       console.log('   ✅ Generated Prisma client found, creating instance...');
       console.log(`   DATABASE_URL length: ${process.env.DATABASE_URL ? process.env.DATABASE_URL.length : 0}`);
       
-      // Connection pooling only (6543) - No direct connection fallback
+      // Connection pooling format detection and conversion
       const originalDatabaseUrl = process.env.DATABASE_URL;
       const connectionUrls = [];
       
-      // Parse the original URL
-      const urlMatch = originalDatabaseUrl.match(/postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/);
-      if (urlMatch) {
-        const [, user, password, host, port, database] = urlMatch;
+      // Check if URL is already in connection pooling format
+      const isPoolingFormat = originalDatabaseUrl.includes('pooler.supabase.com') || 
+                               originalDatabaseUrl.includes('postgres.ddpjrwoyjphumeenabyb');
+      
+      if (isPoolingFormat) {
+        // Already in pooling format, use as-is (ensure SSL)
         const params = originalDatabaseUrl.includes('?') ? originalDatabaseUrl.split('?')[1] : '';
+        const hasSsl = params.includes('sslmode');
+        const poolingUrl = hasSsl 
+          ? originalDatabaseUrl 
+          : `${originalDatabaseUrl}${params ? '&' : '?'}sslmode=require`;
         
-        // Only use connection pooling (6543)
         connectionUrls.push({
-          name: 'Connection Pooling (6543)',
-          url: `postgresql://${user}:${password}@${host}:6543/${database}${params ? '?' + params : ''}${params ? '&' : '?'}sslmode=require`,
+          name: 'Connection Pooling (6543) - Original Format',
+          url: poolingUrl,
           port: 6543
         });
       } else {
-        // If URL parsing fails, use original URL as-is
-        connectionUrls.push({
-          name: 'Original URL',
-          url: originalDatabaseUrl,
-          port: 'unknown'
-        });
+        // Convert from direct connection to pooling format
+        // Format: postgresql://postgres:[PASSWORD]@db.[PROJECT].supabase.co:5432/postgres
+        // To: postgresql://postgres.[PROJECT]:[PASSWORD]@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres
+        const urlMatch = originalDatabaseUrl.match(/postgresql:\/\/([^:]+):([^@]+)@db\.([^.]+)\.supabase\.co:(\d+)\/(.+)/);
+        if (urlMatch) {
+          const [, user, password, projectRef, port, database] = urlMatch;
+          const params = originalDatabaseUrl.includes('?') ? originalDatabaseUrl.split('?')[1] : '';
+          
+          // Extract password (remove URL encoding if any)
+          const decodedPassword = decodeURIComponent(password);
+          
+          // Construct pooling URL with correct format
+          // Use the format: postgresql://postgres.[PROJECT]:[PASSWORD]@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres
+          connectionUrls.push({
+            name: 'Connection Pooling (6543) - Converted Format',
+            url: `postgresql://postgres.${projectRef}:${decodedPassword}@aws-1-ap-southeast-1.pooler.supabase.com:6543/${database}?sslmode=require`,
+            port: 6543
+          });
+        } else {
+          // If parsing fails, try simple port change (fallback)
+          const simpleMatch = originalDatabaseUrl.match(/postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/);
+          if (simpleMatch) {
+            const [, user, password, host, port, database] = simpleMatch;
+            const params = originalDatabaseUrl.includes('?') ? originalDatabaseUrl.split('?')[1] : '';
+            connectionUrls.push({
+              name: 'Connection Pooling (6543) - Simple Port Change',
+              url: `postgresql://${user}:${password}@${host}:6543/${database}${params ? '?' + params : ''}${params ? '&' : '?'}sslmode=require`,
+              port: 6543
+            });
+          } else {
+            // If all parsing fails, use original URL as-is
+            connectionUrls.push({
+              name: 'Original URL',
+              url: originalDatabaseUrl,
+              port: 'unknown'
+            });
+          }
+        }
       }
       
       // Try each connection URL - create client but don't test connection yet (lazy connection)
