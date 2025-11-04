@@ -6,7 +6,20 @@ export class AdminApiService {
   private token: string | null;
 
   constructor() {
-    this.baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+    // Check if we're in production (not localhost)
+    const isProduction = typeof window !== 'undefined' && 
+                         window.location.hostname !== 'localhost' && 
+                         window.location.hostname !== '127.0.0.1';
+    
+    // Use environment variable if set, otherwise use Railway URL for production, localhost for development
+    if (process.env.REACT_APP_API_URL) {
+      this.baseUrl = process.env.REACT_APP_API_URL;
+    } else if (isProduction) {
+      this.baseUrl = 'https://considerate-adventure-production.up.railway.app/api';
+    } else {
+      this.baseUrl = 'http://localhost:3001/api';
+    }
+    
     this.token = localStorage.getItem('admin_token');
   }
 

@@ -1,5 +1,22 @@
 // API Base URL
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+// In production, use Railway backend URL. Override with REACT_APP_API_URL environment variable.
+const getApiBaseUrl = () => {
+  // Check if we're in production (not localhost)
+  const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+  
+  // Use environment variable if set, otherwise use Railway URL for production, localhost for development
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL;
+  }
+  
+  if (isProduction) {
+    return 'https://considerate-adventure-production.up.railway.app/api';
+  }
+  
+  return 'http://localhost:3001/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 // Helper function for API requests
 const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
