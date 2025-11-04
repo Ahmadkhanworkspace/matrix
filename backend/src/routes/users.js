@@ -34,16 +34,19 @@ router.get('/stats/overview', authenticateToken, async (req, res) => {
     const USE_PRISMA = process.env.USE_PRISMA === 'true' || (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('supabase'));
     
     if (USE_PRISMA) {
-      // Use Prisma for Supabase/PostgreSQL
+      // Use Prisma for Supabase/PostgreSQL - use shared prisma client
       try {
-        const { PrismaClient } = require('@prisma/client');
-        const prisma = new PrismaClient();
+        const { prisma } = require('../config/databaseHybrid');
+        const prismaClient = prisma();
+        if (!prismaClient) {
+          throw new Error('Prisma client not initialized');
+        }
 
         // Get total users count
-        const totalUsers = await prisma.user.count();
+        const totalUsers = await prismaClient.user.count();
 
         // Get active users count (status = 'ACTIVE' and isActive = true)
-        const activeUsers = await prisma.user.count({
+        const activeUsers = await prismaClient.user.count({
           where: {
             status: 'ACTIVE',
             isActive: true
@@ -51,14 +54,14 @@ router.get('/stats/overview', authenticateToken, async (req, res) => {
         });
 
         // Get pro users count (memberType = 'PRO')
-        const proUsers = await prisma.user.count({
+        const proUsers = await prismaClient.user.count({
           where: {
             memberType: 'PRO'
           }
         });
 
         // Get pending users count (status = 'PENDING')
-        const pendingUsers = await prisma.user.count({
+        const pendingUsers = await prismaClient.user.count({
           where: {
             status: 'PENDING'
           }
@@ -67,7 +70,7 @@ router.get('/stats/overview', authenticateToken, async (req, res) => {
         // Get new users this week
         const weekAgo = new Date();
         weekAgo.setDate(weekAgo.getDate() - 7);
-        const newUsersThisWeek = await prisma.user.count({
+        const newUsersThisWeek = await prismaClient.user.count({
           where: {
             createdAt: {
               gte: weekAgo
@@ -78,15 +81,13 @@ router.get('/stats/overview', authenticateToken, async (req, res) => {
         // Get new users this month
         const monthAgo = new Date();
         monthAgo.setMonth(monthAgo.getMonth() - 1);
-        const newUsersThisMonth = await prisma.user.count({
+        const newUsersThisMonth = await prismaClient.user.count({
           where: {
             createdAt: {
               gte: monthAgo
             }
           }
         });
-
-        await prisma.$disconnect();
 
         res.json({
           success: true,

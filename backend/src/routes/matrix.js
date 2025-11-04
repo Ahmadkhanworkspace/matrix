@@ -34,36 +34,37 @@ router.get('/level-stats', authenticateToken, async (req, res) => {
     const USE_PRISMA = process.env.USE_PRISMA === 'true' || (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('supabase'));
     
     if (USE_PRISMA) {
-      // Use Prisma for Supabase/PostgreSQL
+      // Use Prisma for Supabase/PostgreSQL - use shared prisma client
       try {
-        const { PrismaClient } = require('@prisma/client');
-        const prisma = new PrismaClient();
+        const { prisma } = require('../config/databaseHybrid');
+        const prismaClient = prisma();
+        if (!prismaClient) {
+          throw new Error('Prisma client not initialized');
+        }
 
         // Get total matrix positions
-        const totalPositions = await prisma.matrixPosition.count();
+        const totalPositions = await prismaClient.matrixPosition.count();
 
         // Get active matrix positions (status = 'ACTIVE')
-        const activePositions = await prisma.matrixPosition.count({
+        const activePositions = await prismaClient.matrixPosition.count({
           where: {
             status: 'ACTIVE'
           }
         });
 
         // Get pending matrix positions (status = 'PENDING')
-        const pendingPositions = await prisma.matrixPosition.count({
+        const pendingPositions = await prismaClient.matrixPosition.count({
           where: {
             status: 'PENDING'
           }
         });
 
         // Get completed cycles (positions that have completed)
-        const completedCycles = await prisma.matrixPosition.count({
+        const completedCycles = await prismaClient.matrixPosition.count({
           where: {
             status: 'COMPLETED'
           }
         });
-
-        await prisma.$disconnect();
 
         res.json({
           success: true,
